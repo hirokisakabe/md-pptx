@@ -257,4 +257,4 @@ npm run format:check
 
 ## ライセンス
 
-ISC
+MIT
