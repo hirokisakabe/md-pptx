@@ -3,9 +3,8 @@
   "tasks": [
     {
       "type": "npm",
-      "script": "build",
-      "path": "vscode-extension",
-      "label": "npm: build - vscode-extension",
+      "script": "build:extension",
+      "label": "build-extension",
       "group": "build"
     }
   ]

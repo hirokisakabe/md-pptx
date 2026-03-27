@@ -6,7 +6,7 @@ import {
   readTemplate,
   mapPresentation,
   generatePptx,
-} from "md-pptx";
+} from "../../index.js";
 
 export function registerBuildCommand(context: vscode.ExtensionContext): void {
   const disposable = vscode.commands.registerCommand(

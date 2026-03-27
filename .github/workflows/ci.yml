@@ -41,23 +41,5 @@ jobs:
       - name: Build
         run: npm run build
 
-      # VS Code Extension
-      - name: "[vscode] Install dependencies"
-        run: npm ci
-        working-directory: vscode-extension
-
-      - name: "[vscode] Typecheck"
-        run: npm run typecheck
-        working-directory: vscode-extension
-
-      - name: "[vscode] Lint"
-        run: npm run lint
-        working-directory: vscode-extension
-
-      - name: "[vscode] Format check"
-        run: npm run format:check
-        working-directory: vscode-extension
-
-      - name: "[vscode] Build"
-        run: npm run build
-        working-directory: vscode-extension
+      - name: Build Extension
+        run: npm run build:extension

@@ -4,7 +4,10 @@ import {
   resolveBackground,
   resolveContentImages,
 } from "./slide-renderer";
-import type { SlideData, BackgroundExtractionResult } from "md-pptx";
+import type {
+  SlideData,
+  BackgroundExtractionResult,
+} from "../../core/types.js";
 
 describe("buildSlideRenderData", () => {
   it("背景・画像変換なしでスライドデータを変換する", () => {

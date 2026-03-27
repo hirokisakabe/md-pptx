@@ -1,13 +1,13 @@
-export { parseMarkdown } from "./parser.js";
-export { readTemplate } from "./template-reader.js";
-export { findLayout, toPlaceholderType } from "./placeholder-utils.js";
+export { parseMarkdown } from "./core/parser.js";
+export { readTemplate } from "./core/template-reader.js";
+export { findLayout, toPlaceholderType } from "./core/placeholder-utils.js";
 export {
   mapSlideToPlaceholders,
   mapPresentation,
-} from "./placeholder-mapper.js";
-export { generatePptx } from "./pptx-generator.js";
-export type { GenerateOptions } from "./pptx-generator.js";
-export { extractBackgrounds } from "./slide-master-extractor.js";
+} from "./core/placeholder-mapper.js";
+export { generatePptx } from "./core/pptx-generator.js";
+export type { GenerateOptions } from "./core/pptx-generator.js";
+export { extractBackgrounds } from "./core/slide-master-extractor.js";
 export type {
   ParseResult,
   FrontMatter,
@@ -31,4 +31,4 @@ export type {
   SlideMasterBackground,
   SlideLayoutBackground,
   BackgroundExtractionResult,
-} from "./types.js";
+} from "./core/types.js";
