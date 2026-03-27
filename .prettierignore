@@ -5,3 +5,5 @@ verify/
 docs/
 .claude/
 e2e/assets/
+.vscode/
+vscode-extension/

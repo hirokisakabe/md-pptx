@@ -1,0 +1,12 @@
+src/**
+node_modules/**
+!node_modules/md-pptx/dist/**
+!node_modules/pyodide/**
+!node_modules/python-pptx-wasm/**
+.eslintrc*
+eslint.config.*
+tsconfig.json
+esbuild.mjs
+.prettierrc
+**/*.map
+**/*.ts
