@@ -1,4 +1,10 @@
 export { parseMarkdown } from "./parser.js";
+export { readTemplate } from "./template-reader.js";
+export { findLayout, toPlaceholderType } from "./placeholder-utils.js";
+export {
+  mapSlideToPlaceholders,
+  mapPresentation,
+} from "./placeholder-mapper.js";
 export type {
   ParseResult,
   FrontMatter,
@@ -13,4 +19,10 @@ export type {
   ImageData,
   Directive,
   DirectiveScope,
+  PlaceholderType,
+  PlaceholderInfo,
+  LayoutInfo,
+  TemplateInfo,
+  PlaceholderAssignment,
+  SlideMappingResult,
 } from "./types.js";

@@ -88,3 +88,42 @@ export interface ParseResult {
   frontMatter: FrontMatter;
   slides: SlideData[];
 }
+
+// === Template / Placeholder ===
+
+export type PlaceholderType =
+  | "title"
+  | "body"
+  | "picture"
+  | "subtitle"
+  | "other";
+
+export interface PlaceholderInfo {
+  idx: number;
+  type: PlaceholderType;
+  name: string;
+}
+
+export interface LayoutInfo {
+  name: string;
+  placeholders: PlaceholderInfo[];
+}
+
+export interface TemplateInfo {
+  layouts: LayoutInfo[];
+}
+
+// === Placeholder Mapping ===
+
+export interface PlaceholderAssignment {
+  placeholderIdx: number;
+  placeholderType: PlaceholderType;
+  content: ContentElement[];
+}
+
+export interface SlideMappingResult {
+  layoutName: string;
+  assignments: PlaceholderAssignment[];
+  fallbackToBlank: boolean;
+  unmappedContent: ContentElement[];
+}
