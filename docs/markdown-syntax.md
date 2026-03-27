@@ -42,7 +42,7 @@ headingDivider: 2
 
 | キー | 型 | 説明 |
 |------|------|------|
-| `template` | string | テンプレートPPTXファイルのパス（必須） |
+| `template` | string | テンプレートPPTXファイルのパス（省略時は空のプレゼンテーションを生成） |
 | `layout` | string | デフォルトのスライドレイアウト名 |
 | `headingDivider` | number \| number[] | 指定した見出しレベルで自動的にスライドを分割（Marp互換） |
 | `author` | string | 作成者（PPTXメタデータに設定） |
