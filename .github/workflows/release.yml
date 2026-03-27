@@ -36,8 +36,8 @@ jobs:
         if: steps.changesets.outputs.hasChangesets == 'false'
         run: |
           VERSION="v$(node -p "require('./package.json').version")"
-          # タグが既に存在する場合はスキップ
-          if git rev-parse "$VERSION" >/dev/null 2>&1; then
+          # タグが既に存在する場合はスキップ（リモートをチェック）
+          if git ls-remote --exit-code --tags origin "refs/tags/$VERSION" >/dev/null 2>&1; then
             echo "Tag $VERSION already exists, skipping"
             exit 0
           fi
