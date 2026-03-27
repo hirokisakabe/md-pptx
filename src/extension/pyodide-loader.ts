@@ -3,6 +3,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as https from "node:https";
 import * as zlib from "node:zlib";
+import { init } from "python-pptx-wasm";
 
 const RELEASE_URL =
   "https://github.com/yikenman/python-pptx-recipe/releases/download/0.29-20260116";
@@ -25,7 +26,6 @@ async function initialize(globalStorageUri: vscode.Uri): Promise<void> {
 
   const lockFileURL = path.join(recipesDir, "pyodide-lock.json");
   const { loadPyodide } = await import("pyodide");
-  const { init } = await import("python-pptx-wasm");
   const pyodide = await loadPyodide({ lockFileURL });
   await init(pyodide);
 }

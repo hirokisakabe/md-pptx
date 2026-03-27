@@ -7,7 +7,7 @@ const buildOptions = {
   entryPoints: ["src/extension/extension.ts"],
   bundle: true,
   outfile: "dist/extension.cjs",
-  external: ["vscode", "pyodide", "python-pptx-wasm"],
+  external: ["vscode", "pyodide"],
   format: "cjs",
   platform: "node",
   target: "node22",
