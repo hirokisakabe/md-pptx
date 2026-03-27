@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   mapSlideToPlaceholders,
   mapPresentation,
+  selectDefaultLayout,
 } from "./placeholder-mapper.js";
 import type {
   SlideData,
@@ -175,6 +176,34 @@ describe("mapSlideToPlaceholders", () => {
       expect(subtitleAssignment!.placeholderIdx).toBe(0);
       expect(subtitleAssignment!.content).toHaveLength(1);
       expect(subtitleAssignment!.content[0].type).toBe("heading");
+
+      expect(result.unmappedContent).toHaveLength(0);
+    });
+
+    it("title+subtitleレイアウトでbodyがない場合、本文をsubtitleにマッピングする", () => {
+      const titleSlideLayout: LayoutInfo = {
+        name: "Title Slide",
+        placeholders: [
+          { idx: 0, type: "title", name: "Title 1" },
+          { idx: 1, type: "subtitle", name: "Subtitle 2" },
+        ],
+      };
+      const s = slide([heading(1, "タイトル"), paragraph("サブテキスト")]);
+      const result = mapSlideToPlaceholders(s, titleSlideLayout);
+
+      const titleAssignment = result.assignments.find(
+        (a) => a.placeholderType === "title",
+      );
+      expect(titleAssignment).toBeDefined();
+      expect(titleAssignment!.content[0].type).toBe("heading");
+
+      const subtitleAssignment = result.assignments.find(
+        (a) => a.placeholderType === "subtitle",
+      );
+      expect(subtitleAssignment).toBeDefined();
+      expect(subtitleAssignment!.placeholderIdx).toBe(1);
+      expect(subtitleAssignment!.content).toHaveLength(1);
+      expect(subtitleAssignment!.content[0].type).toBe("paragraph");
 
       expect(result.unmappedContent).toHaveLength(0);
     });
@@ -356,7 +385,7 @@ describe("mapPresentation", () => {
     expect(results[0].unmappedContent).toHaveLength(2);
   });
 
-  it("layoutが未指定のスライドはBlankにフォールバックする", () => {
+  it("layoutが未指定で見出し+本文のスライドはTitle and Contentを自動選択する", () => {
     const parseResult: ParseResult = {
       frontMatter: {},
       slides: [slide([heading(1, "タイトル"), paragraph("本文")])],
@@ -365,7 +394,30 @@ describe("mapPresentation", () => {
     const results = mapPresentation(parseResult, templateInfo);
 
     expect(results).toHaveLength(1);
-    expect(results[0].fallbackToBlank).toBe(true);
+    expect(results[0].layoutName).toBe("Title and Content");
+    expect(results[0].fallbackToBlank).toBe(false);
+    expect(results[0].assignments).toHaveLength(2);
+
+    const titleAssignment = results[0].assignments.find(
+      (a) => a.placeholderType === "title",
+    );
+    expect(titleAssignment).toBeDefined();
+
+    const bodyAssignment = results[0].assignments.find(
+      (a) => a.placeholderType === "body",
+    );
+    expect(bodyAssignment).toBeDefined();
+  });
+
+  it("layoutが未指定で本文のみのスライドはBlankにフォールバックする", () => {
+    const parseResult: ParseResult = {
+      frontMatter: {},
+      slides: [slide([paragraph("本文のみ")])],
+    };
+
+    const results = mapPresentation(parseResult, templateInfo);
+
+    expect(results).toHaveLength(1);
     expect(results[0].layoutName).toBe("Blank");
   });
 
@@ -392,5 +444,95 @@ describe("mapPresentation", () => {
     );
     expect(bodyAssignment).toBeDefined();
     expect(bodyAssignment!.content).toHaveLength(1);
+  });
+});
+
+describe("selectDefaultLayout", () => {
+  const SECTION_HEADER_LAYOUT: LayoutInfo = {
+    name: "Section Header",
+    placeholders: [
+      { idx: 0, type: "title", name: "Title 1" },
+      { idx: 1, type: "body", name: "Text Placeholder 2" },
+    ],
+  };
+
+  const TITLE_SLIDE_LAYOUT: LayoutInfo = {
+    name: "Title Slide",
+    placeholders: [
+      { idx: 0, type: "title", name: "Title 1" },
+      { idx: 1, type: "subtitle", name: "Subtitle 2" },
+    ],
+  };
+
+  const templateInfo: TemplateInfo = {
+    layouts: [
+      TITLE_SLIDE_LAYOUT,
+      TITLE_AND_CONTENT_LAYOUT,
+      SECTION_HEADER_LAYOUT,
+      BLANK_LAYOUT,
+    ],
+  };
+
+  it("見出し+本文 → Title and Content を選択する", () => {
+    const s = slide([heading(1, "タイトル"), paragraph("本文")]);
+    const layout = selectDefaultLayout(s, templateInfo);
+    expect(layout.name).toBe("Title and Content");
+  });
+
+  it("見出し+リスト → Title and Content を選択する", () => {
+    const s = slide([heading(2, "タイトル"), list(["項目1", "項目2"])]);
+    const layout = selectDefaultLayout(s, templateInfo);
+    expect(layout.name).toBe("Title and Content");
+  });
+
+  it("見出しのみ → Section Header を選択する", () => {
+    const s = slide([heading(1, "セクション")]);
+    const layout = selectDefaultLayout(s, templateInfo);
+    expect(layout.name).toBe("Section Header");
+  });
+
+  it("Section Headerがない場合、見出しのみ → Title Slide を選択する", () => {
+    const templateWithoutSectionHeader: TemplateInfo = {
+      layouts: [TITLE_SLIDE_LAYOUT, TITLE_AND_CONTENT_LAYOUT, BLANK_LAYOUT],
+    };
+    const s = slide([heading(1, "タイトル")]);
+    const layout = selectDefaultLayout(s, templateWithoutSectionHeader);
+    expect(layout.name).toBe("Title Slide");
+  });
+
+  it("本文のみ → Blank を選択する", () => {
+    const s = slide([paragraph("本文のみ")]);
+    const layout = selectDefaultLayout(s, templateInfo);
+    expect(layout.name).toBe("Blank");
+  });
+
+  it("コンテンツなし → Blank を選択する", () => {
+    const s = slide([]);
+    const layout = selectDefaultLayout(s, templateInfo);
+    expect(layout.name).toBe("Blank");
+  });
+
+  it("見出し+画像 → Title and Content を選択する", () => {
+    const s = slide([heading(1, "タイトル"), image("photo.png")]);
+    const layout = selectDefaultLayout(s, templateInfo);
+    expect(layout.name).toBe("Title and Content");
+  });
+
+  it("名前で見つからない場合、プレースホルダー構成でマッチする", () => {
+    const customTemplate: TemplateInfo = {
+      layouts: [
+        {
+          name: "カスタムレイアウト",
+          placeholders: [
+            { idx: 0, type: "title", name: "Title" },
+            { idx: 1, type: "body", name: "Body" },
+          ],
+        },
+        BLANK_LAYOUT,
+      ],
+    };
+    const s = slide([heading(1, "タイトル"), paragraph("本文")]);
+    const layout = selectDefaultLayout(s, customTemplate);
+    expect(layout.name).toBe("カスタムレイアウト");
   });
 });

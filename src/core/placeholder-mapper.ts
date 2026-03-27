@@ -11,6 +11,84 @@ import type {
 } from "./types.js";
 import { findLayout } from "./placeholder-utils.js";
 
+interface ContentProfile {
+  hasHeading: boolean;
+  hasBody: boolean;
+  hasImage: boolean;
+}
+
+function analyzeContent(content: ContentElement[]): ContentProfile {
+  let hasHeading = false;
+  let hasBody = false;
+  let hasImage = false;
+
+  for (const element of content) {
+    if (
+      element.type === "heading" &&
+      (element.level === 1 || element.level === 2)
+    ) {
+      hasHeading = true;
+    } else if (element.type === "image") {
+      hasImage = true;
+    } else {
+      hasBody = true;
+    }
+  }
+
+  return { hasHeading, hasBody, hasImage };
+}
+
+function layoutHasPlaceholder(
+  layout: LayoutInfo,
+  type: PlaceholderType,
+): boolean {
+  return layout.placeholders.some((p) => p.type === type);
+}
+
+export function selectDefaultLayout(
+  slide: SlideData,
+  templateInfo: TemplateInfo,
+): LayoutInfo {
+  const profile = analyzeContent(slide.content);
+  const blankLayout =
+    findLayout(templateInfo, "Blank") ??
+    ({ name: "Blank", placeholders: [] } as LayoutInfo);
+
+  if (!profile.hasHeading && !profile.hasImage) {
+    return blankLayout;
+  }
+
+  if (profile.hasHeading && (profile.hasBody || profile.hasImage)) {
+    // 見出し + 本文/画像: "Title and Content" を優先
+    const byName = findLayout(templateInfo, "Title and Content");
+    if (byName) return byName;
+
+    // 名前で見つからない場合、title + body を持つレイアウトを探す
+    const byPlaceholder = templateInfo.layouts.find(
+      (l) =>
+        layoutHasPlaceholder(l, "title") && layoutHasPlaceholder(l, "body"),
+    );
+    if (byPlaceholder) return byPlaceholder;
+  }
+
+  if (profile.hasHeading && !profile.hasBody && !profile.hasImage) {
+    // 見出しのみ: "Section Header" → "Title Slide" の順
+    const sectionHeader = findLayout(templateInfo, "Section Header");
+    if (sectionHeader) return sectionHeader;
+
+    const titleSlide = findLayout(templateInfo, "Title Slide");
+    if (titleSlide) return titleSlide;
+
+    // 名前で見つからない場合、title を持つレイアウトを探す
+    const byPlaceholder = templateInfo.layouts.find((l) =>
+      layoutHasPlaceholder(l, "title"),
+    );
+    if (byPlaceholder) return byPlaceholder;
+  }
+
+  return blankLayout;
+}
+
 const BLANK_LAYOUT: LayoutInfo = { name: "Blank", placeholders: [] };
 
 function findPlaceholder(
@@ -65,6 +143,8 @@ export function mapSlideToPlaceholders(
     } else {
       if (bodyPh) {
         bodyContent.push(element);
+      } else if (subtitlePh && titlePh && titleAssigned) {
+        subtitleContent.push(element);
       } else {
         unmappedContent.push(element);
       }
@@ -122,10 +202,13 @@ export function mapPresentation(
 ): SlideMappingResult[] {
   return parseResult.slides.map((slide: SlideData) => {
     const layoutName = slide.layout;
-    const layout = layoutName
-      ? findLayout(templateInfo, layoutName)
-      : undefined;
 
+    if (!layoutName) {
+      const defaultLayout = selectDefaultLayout(slide, templateInfo);
+      return mapSlideToPlaceholders(slide, defaultLayout);
+    }
+
+    const layout = findLayout(templateInfo, layoutName);
     if (!layout) {
       const blankLayout = findLayout(templateInfo, "Blank") ?? BLANK_LAYOUT;
       return mapSlideToPlaceholders(slide, blankLayout);

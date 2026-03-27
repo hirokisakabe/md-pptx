@@ -15,6 +15,7 @@ export function toPlaceholderType(rawType: number): PlaceholderType {
     case 3: // CENTER_TITLE
       return "title";
     case 2: // BODY
+    case 7: // OBJECT (Content Placeholder)
       return "body";
     case 4: // SUBTITLE
       return "subtitle";

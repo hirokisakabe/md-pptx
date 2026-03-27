@@ -225,9 +225,10 @@ describe("E2E: 生成PPTXの内容検証", () => {
 
     const zip = await JSZip.loadAsync(pptxData);
 
-    // スライド1: _layout: Title Slide → タイトルテキストが注入される
+    // スライド1: _layout: Title Slide → タイトルとサブタイトルが注入される
     const slide1 = await zip.file("ppt/slides/slide1.xml")!.async("string");
     expect(slide1).toContain("md-pptx サンプル");
+    expect(slide1).toContain("VS Code拡張の動作確認用");
 
     // スライド6: _layout: Title Slide → タイトルテキストが注入される
     const slide6 = await zip.file("ppt/slides/slide6.xml")!.async("string");
