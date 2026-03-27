@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { toPlaceholderType, findLayout } from "../placeholder-utils.js";
-import type { TemplateInfo } from "../types.js";
+import { toPlaceholderType, findLayout } from "./placeholder-utils.js";
+import type { TemplateInfo } from "./types.js";
 
 describe("toPlaceholderType", () => {
   it("CENTER_TITLE (1) を title に変換する", () => {

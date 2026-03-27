@@ -26,7 +26,7 @@ npm run format:check   # Prettier チェック
 単一テストファイルの実行:
 
 ```bash
-npx vitest run src/__tests__/parser.test.ts
+npx vitest run src/parser.test.ts
 ```
 
 ### VS Code 拡張

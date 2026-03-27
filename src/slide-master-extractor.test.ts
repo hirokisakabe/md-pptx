@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import JSZip from "jszip";
-import { extractBackgrounds } from "../slide-master-extractor.js";
+import { extractBackgrounds } from "./slide-master-extractor.js";
 
 /** テスト用のPPTXバイナリを生成するヘルパー */
 async function createTestPptx(

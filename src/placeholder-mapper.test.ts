@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   mapSlideToPlaceholders,
   mapPresentation,
-} from "../placeholder-mapper.js";
+} from "./placeholder-mapper.js";
 import type {
   SlideData,
   LayoutInfo,
@@ -13,7 +13,7 @@ import type {
   ImageElement,
   TemplateInfo,
   ParseResult,
-} from "../types.js";
+} from "./types.js";
 
 // === ヘルパー ===
 

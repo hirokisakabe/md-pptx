@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseMarkdown } from "../parser.js";
+import { parseMarkdown } from "./parser.js";
 
 describe("parseMarkdown", () => {
   it("should parse a minimal document", () => {

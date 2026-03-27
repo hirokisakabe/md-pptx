@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import MarkdownIt from "markdown-it";
-import { splitTokensIntoSlides } from "../slide-splitter.js";
+import { splitTokensIntoSlides } from "./slide-splitter.js";
 
 const md = new MarkdownIt({ html: true });
 

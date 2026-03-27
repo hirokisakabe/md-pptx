@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import MarkdownIt from "markdown-it";
-import { convertTokensToSlide } from "../token-converter.js";
+import { convertTokensToSlide } from "./token-converter.js";
 
 const md = new MarkdownIt({ html: true });
 md.enable("strikethrough");
