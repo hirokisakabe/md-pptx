@@ -9,7 +9,7 @@
     "url": "https://github.com/hirokisakabe/md-pptx.git"
   },
   "type": "module",
-  "main": "./dist/extension.cjs",
+  "main": "./dist/extension.mjs",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {

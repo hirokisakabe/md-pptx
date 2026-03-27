@@ -7,6 +7,7 @@ import {
   mapPresentation,
   generatePptx,
 } from "../../index.js";
+import { ensureInitialized } from "../pyodide-loader";
 
 export function registerBuildCommand(context: vscode.ExtensionContext): void {
   const disposable = vscode.commands.registerCommand(
@@ -27,11 +28,15 @@ export function registerBuildCommand(context: vscode.ExtensionContext): void {
       await vscode.window.withProgress(
         {
           location: vscode.ProgressLocation.Notification,
-          title: "md-pptx: PPTX を生成中...",
+          title: "md-pptx",
           cancellable: false,
         },
-        async () => {
+        async (progress) => {
           try {
+            progress.report({ message: "python-pptx-wasm を初期化中..." });
+            await ensureInitialized(context.globalStorageUri);
+
+            progress.report({ message: "PPTX を生成中..." });
             await buildPptx(document);
           } catch (error) {
             const message =
