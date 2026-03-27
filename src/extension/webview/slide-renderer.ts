@@ -111,63 +111,28 @@ export function buildShellHtml(): string {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background: var(--vscode-editor-background);
       color: var(--vscode-editor-foreground);
-      display: flex;
-      flex-direction: column;
       height: 100vh;
       overflow: hidden;
     }
 
-    /* ── Navigation bar ── */
-    .nav-bar {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 12px;
-      padding: 8px 16px;
-      background: var(--vscode-editorWidget-background);
-      border-bottom: 1px solid var(--vscode-panel-border);
-      flex-shrink: 0;
-    }
-
-    .nav-bar button {
-      background: var(--vscode-button-background);
-      color: var(--vscode-button-foreground);
-      border: none;
-      border-radius: 4px;
-      padding: 4px 12px;
-      cursor: pointer;
-      font-size: 13px;
-    }
-    .nav-bar button:hover {
-      background: var(--vscode-button-hoverBackground);
-    }
-    .nav-bar button:disabled {
-      opacity: 0.4;
-      cursor: default;
-    }
-
-    .slide-indicator {
-      font-size: 13px;
-      color: var(--vscode-descriptionForeground);
-      min-width: 60px;
-      text-align: center;
-    }
-
     /* ── Slide viewport ── */
     .slide-viewport {
-      flex: 1;
+      height: 100vh;
+      overflow-y: auto;
       display: flex;
+      flex-direction: column;
       align-items: center;
-      justify-content: center;
-      padding: 16px;
-      overflow: hidden;
+      padding: 24px 16px;
+      gap: 24px;
     }
 
     .slide-frame {
       position: relative;
       width: 100%;
       max-width: 960px;
+      min-width: 480px;
       aspect-ratio: 16 / 9;
+      flex-shrink: 0;
       background: #ffffff;
       color: #333333;
       border-radius: 4px;
@@ -298,11 +263,6 @@ export function buildShellHtml(): string {
   </style>
 </head>
 <body>
-  <div class="nav-bar">
-    <button id="btn-prev" disabled>&larr; Prev</button>
-    <span class="slide-indicator" id="indicator">-</span>
-    <button id="btn-next" disabled>Next &rarr;</button>
-  </div>
   <div class="slide-viewport" id="viewport">
     <p class="empty-state">スライドを読み込み中...</p>
   </div>
@@ -311,71 +271,28 @@ export function buildShellHtml(): string {
     (function () {
       const vscode = acquireVsCodeApi();
       const viewport = document.getElementById("viewport");
-      const indicator = document.getElementById("indicator");
-      const btnPrev = document.getElementById("btn-prev");
-      const btnNext = document.getElementById("btn-next");
 
       let slides = [];
-      let currentIndex = 0;
 
       // ── Message handler ──
       window.addEventListener("message", (event) => {
         const msg = event.data;
         if (msg.type === "update") {
           slides = msg.slides || [];
-          if (currentIndex >= slides.length) {
-            currentIndex = Math.max(0, slides.length - 1);
-          }
           render();
         }
       });
-
-      // ── Navigation ──
-      btnPrev.addEventListener("click", () => navigate(-1));
-      btnNext.addEventListener("click", () => navigate(1));
-
-      document.addEventListener("keydown", (e) => {
-        if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
-          e.preventDefault();
-          navigate(-1);
-        } else if (e.key === "ArrowRight" || e.key === "ArrowDown" || e.key === " ") {
-          e.preventDefault();
-          navigate(1);
-        } else if (e.key === "Home") {
-          e.preventDefault();
-          currentIndex = 0;
-          render();
-        } else if (e.key === "End") {
-          e.preventDefault();
-          currentIndex = Math.max(0, slides.length - 1);
-          render();
-        }
-      });
-
-      function navigate(delta) {
-        const next = currentIndex + delta;
-        if (next >= 0 && next < slides.length) {
-          currentIndex = next;
-          render();
-        }
-      }
 
       // ── Render ──
       function render() {
         if (slides.length === 0) {
           viewport.innerHTML = '<p class="empty-state">スライドが見つかりません。</p>';
-          indicator.textContent = "-";
-          btnPrev.disabled = true;
-          btnNext.disabled = true;
           return;
         }
 
-        indicator.textContent = (currentIndex + 1) + " / " + slides.length;
-        btnPrev.disabled = currentIndex === 0;
-        btnNext.disabled = currentIndex === slides.length - 1;
-
-        const slide = slides[currentIndex];
-        viewport.innerHTML = renderSlide(slide);
+        viewport.innerHTML = slides.map(function (slide) {
+          return renderSlide(slide);
+        }).join("");
       }
 
       function renderSlide(slide) {
