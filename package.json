@@ -2,7 +2,7 @@
   "name": "md-pptx",
   "displayName": "md-pptx",
   "version": "0.0.0",
-  "description": "Marp風Markdown → テンプレートPPTX出力ツール",
+  "description": "Markdown とテンプレート PPTX から編集可能な PowerPoint ファイルを生成するツール",
   "publisher": "hirokisakabe",
   "type": "module",
   "main": "./dist/extension.cjs",

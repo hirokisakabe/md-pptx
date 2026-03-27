@@ -2,7 +2,7 @@
 
 ## プロジェクト概要
 
-md-pptx は Marp 互換の Markdown と PPTX テンプレートから編集可能な PowerPoint ファイルを生成するツール。コアライブラリ（`src/`）と VS Code 拡張（`vscode-extension/`）の 2 プロジェクト構成。
+md-pptx は Markdown とテンプレート PPTX から編集可能な PowerPoint ファイルを生成するツール。コアライブラリ（`src/`）と VS Code 拡張（`vscode-extension/`）の 2 プロジェクト構成。
 
 ## コマンド
 
@@ -71,7 +71,7 @@ tsup で 2 つのエントリポイントをビルド（ESM のみ）:
 
 ### ディレクティブ
 
-HTML コメント形式（`<!-- layout: name -->`）で Marp 互換のディレクティブをサポート。`layout` はローカルディレクティブ（以降のスライドに影響）、`_layout` はスポットディレクティブ（そのスライドのみ）。
+HTML コメント形式（`<!-- layout: name -->`）でディレクティブをサポート。`layout` はローカルディレクティブ（以降のスライドに影響）、`_layout` はスポットディレクティブ（そのスライドのみ）。
 
 ### VS Code 拡張
 

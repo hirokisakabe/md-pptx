@@ -13,7 +13,7 @@ VS Code拡張の動作確認用
 
 ## 概要
 
-- Marp風MarkdownからPPTXを生成するツール
+- MarkdownからPPTXを生成するツール
 - **テンプレートPPTX**のスライドマスターを活用
 - *編集可能な*PPTXを出力
 
