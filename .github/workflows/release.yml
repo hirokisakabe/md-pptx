@@ -33,13 +33,29 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create and push tag
+        id: create-tag
         if: steps.changesets.outputs.hasChangesets == 'false'
         run: |
           VERSION="v$(node -p "require('./package.json').version")"
           # タグが既に存在する場合はスキップ（リモートをチェック）
           if git ls-remote --exit-code --tags origin "refs/tags/$VERSION" >/dev/null 2>&1; then
             echo "Tag $VERSION already exists, skipping"
+            echo "tag-created=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           git tag "$VERSION"
           git push origin "$VERSION"
+          echo "tag-created=true" >> "$GITHUB_OUTPUT"
+          echo "tag-name=$VERSION" >> "$GITHUB_OUTPUT"
+
+    outputs:
+      tag-created: ${{ steps.create-tag.outputs.tag-created }}
+      tag-name: ${{ steps.create-tag.outputs.tag-name }}
+
+  publish:
+    needs: release
+    if: needs.release.outputs.tag-created == 'true'
+    uses: ./.github/workflows/publish.yml
+    with:
+      tag: ${{ needs.release.outputs.tag-name }}
+    secrets: inherit
