@@ -1,7 +1,7 @@
 {
   "name": "md-pptx",
   "displayName": "md-pptx",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Markdown から編集可能な PowerPoint ファイルを生成するツール",
   "publisher": "hirokisakabe",
   "repository": {
