@@ -6,7 +6,7 @@ const watch = process.argv.includes("--watch");
 const buildOptions = {
   entryPoints: ["src/extension/extension.ts"],
   bundle: true,
-  outfile: "dist/extension.mjs",
+  outfile: "dist/extension.js",
   external: ["vscode", "pyodide"],
   format: "esm",
   platform: "node",
