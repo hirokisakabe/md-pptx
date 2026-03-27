@@ -7,12 +7,6 @@ export default tseslint.config(
   ...tseslint.configs.recommended,
   eslintConfigPrettier,
   {
-    ignores: [
-      "dist/",
-      "node_modules/",
-      "benchmark/",
-      "verify/",
-      "vscode-extension/",
-    ],
+    ignores: ["dist/", "node_modules/"],
   },
 );
