@@ -1,4 +1,4 @@
-import { init, Presentation, Inches, Pt } from "python-pptx-wasm";
+import { init, Presentation, Inches } from "python-pptx-wasm";
 import { loadPyodide } from "pyodide";
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -211,6 +211,7 @@ async function main() {
     const outputDir = path.join(PROJECT_ROOT, "output");
     fs.mkdirSync(outputDir, { recursive: true });
     const outputPath = path.join(outputDir, "verify-output.pptx");
+    const outputRelPath = path.relative(PROJECT_ROOT, outputPath);
 
     const buffer = prs.save();
     if (buffer instanceof Uint8Array) {
@@ -219,7 +220,7 @@ async function main() {
       record(
         "6. 出力 PPTX の保存",
         "OK",
-        `ファイル保存に成功: ${outputPath} (${stat.size} bytes)\n    ※ PowerPoint で開いて正常に表示されるか手動で確認してください`
+        `ファイル保存に成功: ${outputRelPath} (${stat.size} bytes)\n    ※ PowerPoint で開いて正常に表示されるか手動で確認してください`
       );
     } else {
       record(
@@ -278,6 +279,10 @@ function printSummary() {
   const resultsPath = path.join(PROJECT_ROOT, "RESULTS.md");
   fs.writeFileSync(resultsPath, md);
   console.log(`\n検証結果を ${resultsPath} に保存しました。`);
+
+  if (ngCount > 0) {
+    process.exitCode = 1;
+  }
 }
 
 function generateResultsMd(): string {

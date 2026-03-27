@@ -1,6 +1,6 @@
 # python-pptx-wasm 動作検証結果
 
-検証日時: 2026-03-27T11:01:46.633Z
+検証日時: 2026-03-27T11:06:38.381Z
 python-pptx-wasm: v0.0.1
 
 ## サマリ
@@ -129,7 +129,7 @@ PicturePlaceholder.insert_picture() で画像注入に成功 (Layout[8] "Picture
 **結果**: OK
 
 ```
-ファイル保存に成功: /Users/hirokisakabe/work/md-pptx.feature-verify-python-pptx-wasm/verify/output/verify-output.pptx (30360 bytes)
+ファイル保存に成功: output/verify-output.pptx (30360 bytes)
     ※ PowerPoint で開いて正常に表示されるか手動で確認してください
 ```
 
