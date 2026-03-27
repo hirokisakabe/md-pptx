@@ -5,6 +5,9 @@
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "bin": {
+    "md-pptx": "./dist/cli.js"
+  },
   "files": [
     "dist"
   ],
@@ -22,6 +25,7 @@
   "keywords": [],
   "license": "ISC",
   "dependencies": {
+    "commander": "^14.0.3",
     "jszip": "^3.10.1",
     "markdown-it": "^14.1.1",
     "pyodide": "^0.28.3",
