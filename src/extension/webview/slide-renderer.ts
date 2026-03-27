@@ -130,7 +130,9 @@ export function buildShellHtml(): string {
       position: relative;
       width: 100%;
       max-width: 960px;
+      min-width: 480px;
       aspect-ratio: 16 / 9;
+      flex-shrink: 0;
       background: #ffffff;
       color: #333333;
       border-radius: 4px;
