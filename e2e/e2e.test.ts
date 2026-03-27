@@ -12,10 +12,10 @@ import { fileURLToPath } from "node:url";
 import { init } from "python-pptx-wasm";
 import { loadPyodide } from "pyodide";
 import JSZip from "jszip";
-import { parseMarkdown } from "../src/parser.js";
-import { readTemplate } from "../src/template-reader.js";
-import { mapPresentation } from "../src/placeholder-mapper.js";
-import { generatePptx } from "../src/pptx-generator.js";
+import { parseMarkdown } from "../src/core/parser.js";
+import { readTemplate } from "../src/core/template-reader.js";
+import { mapPresentation } from "../src/core/placeholder-mapper.js";
+import { generatePptx } from "../src/core/pptx-generator.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const FIXTURES = join(__dirname, "fixtures");
