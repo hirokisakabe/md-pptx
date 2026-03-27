@@ -1,6 +1,21 @@
 import * as vscode from "vscode";
-import { parseMarkdown } from "md-pptx";
-import type { SlideData, ContentElement } from "md-pptx";
+import * as path from "node:path";
+import * as fs from "node:fs";
+import { parseMarkdown, extractBackgrounds } from "md-pptx";
+import type { BackgroundExtractionResult } from "md-pptx";
+import { buildSlideRenderData, buildShellHtml } from "./slide-renderer";
+import type { SlideRenderData } from "./slide-renderer";
+
+/** Webview に送信するメッセージ */
+interface UpdateMessage {
+  type: "update";
+  slides: SlideRenderData[];
+}
+
+/** Webview から受信するメッセージ */
+interface WebviewMessage {
+  type: "ready";
+}
 
 export class PreviewPanel {
   public static readonly viewType = "md-pptx.preview";
@@ -11,6 +26,13 @@ export class PreviewPanel {
   private document: vscode.TextDocument;
   private disposables: vscode.Disposable[] = [];
 
+  /** 背景画像キャッシュ */
+  private cachedTemplatePath: string | undefined;
+  private cachedBackgrounds: BackgroundExtractionResult | undefined;
+
+  /** 非同期 update の競合防止用シーケンス番号 */
+  private updateSeq = 0;
+
   private constructor(
     panel: vscode.WebviewPanel,
     document: vscode.TextDocument,
@@ -18,14 +40,24 @@ export class PreviewPanel {
     this.panel = panel;
     this.document = document;
 
-    this.update();
+    this.panel.webview.html = buildShellHtml();
 
     this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
+
+    this.panel.webview.onDidReceiveMessage(
+      (message: WebviewMessage) => {
+        if (message.type === "ready") {
+          void this.update();
+        }
+      },
+      null,
+      this.disposables,
+    );
 
     vscode.workspace.onDidChangeTextDocument(
       (e) => {
         if (e.document.uri.toString() === this.document.uri.toString()) {
-          this.update();
+          void this.update();
         }
       },
       null,
@@ -36,7 +68,7 @@ export class PreviewPanel {
       (editor) => {
         if (editor && editor.document.languageId === "markdown") {
           this.document = editor.document;
-          this.update();
+          void this.update();
         }
       },
       null,
@@ -53,198 +85,93 @@ export class PreviewPanel {
     if (PreviewPanel.instance) {
       PreviewPanel.instance.document = document;
       PreviewPanel.instance.panel.reveal(column);
-      PreviewPanel.instance.update();
+      void PreviewPanel.instance.update();
       return;
     }
+
+    const mdDir = path.dirname(document.uri.fsPath);
 
     const panel = vscode.window.createWebviewPanel(
       PreviewPanel.viewType,
       "md-pptx Preview",
       column,
       {
-        enableScripts: false,
-        localResourceRoots: [extensionUri],
+        enableScripts: true,
+        localResourceRoots: [
+          extensionUri,
+          vscode.Uri.file(mdDir),
+          ...(vscode.workspace.workspaceFolders?.map((f) => f.uri) ?? []),
+        ],
       },
     );
 
     PreviewPanel.instance = new PreviewPanel(panel, document);
   }
 
-  private update(): void {
+  private async update(): Promise<void> {
+    const seq = ++this.updateSeq;
     const mdContent = this.document.getText();
 
     try {
       const parseResult = parseMarkdown(mdContent);
-      this.panel.webview.html = this.buildHtml(parseResult.slides);
-    } catch {
-      this.panel.webview.html = this.buildErrorHtml(
-        "Markdownのパースに失敗しました。",
+      const backgrounds = await this.resolveBackgrounds(
+        parseResult.frontMatter.template,
       );
+
+      // 非同期処理中に新しい update が開始された場合は古い結果を破棄
+      if (seq !== this.updateSeq) return;
+
+      const webview = this.panel.webview;
+      const mdDir = path.dirname(this.document.uri.fsPath);
+      const resolveImageSrc = (src: string): string => {
+        try {
+          const imgPath = path.resolve(mdDir, src);
+          return webview.asWebviewUri(vscode.Uri.file(imgPath)).toString();
+        } catch {
+          return src;
+        }
+      };
+
+      const slides = buildSlideRenderData(
+        parseResult.slides,
+        backgrounds,
+        resolveImageSrc,
+      );
+
+      const message: UpdateMessage = { type: "update", slides };
+      void this.panel.webview.postMessage(message);
+    } catch {
+      if (seq !== this.updateSeq) return;
+      const message: UpdateMessage = { type: "update", slides: [] };
+      void this.panel.webview.postMessage(message);
     }
   }
 
-  private buildHtml(slides: SlideData[]): string {
-    const slidesHtml = slides
-      .map((slide, index) => this.renderSlide(slide, index))
-      .join("\n");
+  private async resolveBackgrounds(
+    templateRelPath: string | undefined,
+  ): Promise<BackgroundExtractionResult | undefined> {
+    if (!templateRelPath) {
+      this.cachedTemplatePath = undefined;
+      this.cachedBackgrounds = undefined;
+      return undefined;
+    }
 
-    return /* html */ `<!DOCTYPE html>
-<html lang="ja">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      margin: 0;
-      padding: 16px;
-      background: var(--vscode-editor-background);
-      color: var(--vscode-editor-foreground);
-    }
-    .slide {
-      border: 1px solid var(--vscode-panel-border);
-      border-radius: 4px;
-      padding: 24px;
-      margin-bottom: 16px;
-      background: var(--vscode-editorWidget-background);
-      aspect-ratio: 16 / 9;
-      overflow: hidden;
-      position: relative;
-    }
-    .slide-number {
-      position: absolute;
-      top: 8px;
-      right: 12px;
-      font-size: 11px;
-      color: var(--vscode-descriptionForeground);
-    }
-    .slide-layout {
-      position: absolute;
-      top: 8px;
-      left: 12px;
-      font-size: 11px;
-      color: var(--vscode-descriptionForeground);
-    }
-    h1 { font-size: 1.8em; margin: 0 0 0.5em; }
-    h2 { font-size: 1.4em; margin: 0 0 0.5em; }
-    h3 { font-size: 1.2em; margin: 0 0 0.5em; }
-    p { margin: 0.3em 0; }
-    ul, ol { margin: 0.3em 0; padding-left: 1.5em; }
-    .image-placeholder {
-      display: inline-block;
-      padding: 8px 12px;
-      border: 1px dashed var(--vscode-panel-border);
-      border-radius: 4px;
-      font-style: italic;
-      color: var(--vscode-descriptionForeground);
-    }
-    code {
-      font-family: var(--vscode-editor-font-family);
-      background: var(--vscode-textCodeBlock-background);
-      padding: 1px 4px;
-      border-radius: 3px;
-    }
-    a {
-      color: var(--vscode-textLink-foreground);
-    }
-    .empty {
-      color: var(--vscode-descriptionForeground);
-      font-style: italic;
-    }
-  </style>
-</head>
-<body>
-  ${slidesHtml || '<p class="empty">スライドが見つかりません。</p>'}
-</body>
-</html>`;
-  }
+    const mdDir = path.dirname(this.document.uri.fsPath);
+    const templatePath = path.resolve(mdDir, templateRelPath);
 
-  private renderSlide(slide: SlideData, index: number): string {
-    const contentHtml = slide.content
-      .map((el) => this.renderElement(el))
-      .join("\n");
-
-    const layoutLabel = slide.layout
-      ? `<span class="slide-layout">${this.escapeHtml(slide.layout)}</span>`
-      : "";
-
-    return `<div class="slide">
-  ${layoutLabel}
-  <span class="slide-number">${index + 1}</span>
-  ${contentHtml || '<p class="empty">(空のスライド)</p>'}
-</div>`;
-  }
-
-  private renderElement(element: ContentElement): string {
-    switch (element.type) {
-      case "heading": {
-        const tag = `h${Math.min(element.level, 6)}`;
-        const text = element.runs.map((r) => this.renderTextRun(r)).join("");
-        return `<${tag}>${text}</${tag}>`;
-      }
-      case "paragraph": {
-        const text = element.runs.map((r) => this.renderTextRun(r)).join("");
-        return `<p>${text}</p>`;
-      }
-      case "list": {
-        const firstOrdered = element.items[0]?.ordered ?? false;
-        const tag = firstOrdered ? "ol" : "ul";
-        const items = element.items
-          .map((item) => {
-            const text = item.runs.map((r) => this.renderTextRun(r)).join("");
-            return `<li>${text}</li>`;
-          })
-          .join("\n");
-        return `<${tag}>${items}</${tag}>`;
-      }
-      case "image": {
-        const alt = element.image.alt || element.image.src;
-        return `<span class="image-placeholder">[Image: ${this.escapeHtml(alt)}]</span>`;
-      }
+    if (this.cachedTemplatePath === templatePath && this.cachedBackgrounds) {
+      return this.cachedBackgrounds;
     }
-  }
 
-  private renderTextRun(run: {
-    text: string;
-    bold?: boolean;
-    italic?: boolean;
-    code?: boolean;
-    link?: string;
-  }): string {
-    let html = this.escapeHtml(run.text);
-    if (run.code) html = `<code>${html}</code>`;
-    if (run.bold) html = `<strong>${html}</strong>`;
-    if (run.italic) html = `<em>${html}</em>`;
-    if (run.link) html = `<a href="${this.escapeHtml(run.link)}">${html}</a>`;
-    return html;
-  }
-
-  private escapeHtml(text: string): string {
-    return text
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;");
-  }
-
-  private buildErrorHtml(message: string): string {
-    return /* html */ `<!DOCTYPE html>
-<html lang="ja">
-<head>
-  <meta charset="UTF-8">
-  <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      padding: 16px;
-      background: var(--vscode-editor-background);
-      color: var(--vscode-errorForeground);
+    try {
+      const templateData = new Uint8Array(fs.readFileSync(templatePath));
+      const backgrounds = await extractBackgrounds(templateData);
+      this.cachedTemplatePath = templatePath;
+      this.cachedBackgrounds = backgrounds;
+      return backgrounds;
+    } catch {
+      return undefined;
     }
-  </style>
-</head>
-<body>
-  <p>${this.escapeHtml(message)}</p>
-</body>
-</html>`;
   }
 
   private dispose(): void {
