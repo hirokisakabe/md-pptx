@@ -1,0 +1,20 @@
+{
+  "name": "pyodide-load-benchmark",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "benchmark": "node --expose-gc --import tsx src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "setup:recipes": "bash scripts/download-recipes.sh"
+  },
+  "dependencies": {
+    "pyodide": "^0.28.0",
+    "python-pptx-wasm": "^0.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0"
+  }
+}
