@@ -5,6 +5,8 @@ export {
   mapSlideToPlaceholders,
   mapPresentation,
 } from "./placeholder-mapper.js";
+export { generatePptx } from "./pptx-generator.js";
+export type { GenerateOptions } from "./pptx-generator.js";
 export type {
   ParseResult,
   FrontMatter,

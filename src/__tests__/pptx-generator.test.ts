@@ -1,0 +1,689 @@
+import { describe, expect, it, vi, beforeEach } from "vitest";
+import type {
+  ParseResult,
+  SlideData,
+  SlideMappingResult,
+  ContentElement,
+  HeadingElement,
+  ParagraphElement,
+  ListElement,
+  ImageElement,
+} from "../types.js";
+
+// === Mock Setup ===
+
+function createMockRun() {
+  return {
+    text: "",
+    font: {
+      bold: undefined as boolean | undefined,
+      italic: undefined as boolean | undefined,
+      size: undefined as unknown,
+      name: undefined as string | undefined,
+      underline: undefined as boolean | undefined,
+    },
+    hyperlink: {
+      address: undefined as string | undefined,
+    },
+  };
+}
+
+function createMockParagraph() {
+  const runs: ReturnType<typeof createMockRun>[] = [];
+  return {
+    text: "",
+    level: 0,
+    font: {
+      bold: undefined as boolean | undefined,
+      italic: undefined as boolean | undefined,
+      size: undefined as unknown,
+    },
+    runs,
+    add_run: vi.fn(() => {
+      const run = createMockRun();
+      runs.push(run);
+      return run;
+    }),
+  };
+}
+
+function createMockTextFrame() {
+  const firstParagraph = createMockParagraph();
+  const paragraphs = [firstParagraph] as ReturnType<
+    typeof createMockParagraph
+  >[];
+  return {
+    text: "",
+    paragraphs,
+    clear: vi.fn(() => {
+      paragraphs.length = 0;
+      const p = createMockParagraph();
+      paragraphs.push(p);
+    }),
+    add_paragraph: vi.fn(() => {
+      const p = createMockParagraph();
+      paragraphs.push(p);
+      return p;
+    }),
+  };
+}
+
+function createMockPlaceholder(idx: number, type: string) {
+  const tf = createMockTextFrame();
+  return {
+    placeholder_format: { idx, type },
+    text_frame: tf,
+    text: "",
+    insert_picture: vi.fn(),
+    name: `Placeholder ${idx}`,
+  };
+}
+
+function createMockSlide(
+  placeholders: ReturnType<typeof createMockPlaceholder>[],
+) {
+  const notesTextFrame = createMockTextFrame();
+  return {
+    placeholders: {
+      length: placeholders.length,
+      getItem: vi.fn((i: number) => placeholders[i]),
+    },
+    notes_slide: {
+      notes_text_frame: notesTextFrame,
+    },
+    shapes: {
+      add_picture: vi.fn(),
+      add_textbox: vi.fn(),
+    },
+  };
+}
+
+function createMockPresentation(
+  layoutNames: string[],
+  slidePlaceholderCreator?: (
+    layoutName: string,
+  ) => ReturnType<typeof createMockPlaceholder>[],
+) {
+  const slides: ReturnType<typeof createMockSlide>[] = [];
+  const layouts = layoutNames.map((name) => ({ name }));
+
+  return {
+    slide_layouts: {
+      length: layouts.length,
+      getItem: vi.fn((i: number) => layouts[i]),
+      get_by_name: vi.fn((name: string) =>
+        layouts.find((l) => l.name === name),
+      ),
+    },
+    slides: {
+      length: 0,
+      add_slide: vi.fn((layout: { name: string }) => {
+        const phs = slidePlaceholderCreator
+          ? slidePlaceholderCreator(layout.name)
+          : [];
+        const slide = createMockSlide(phs);
+        slides.push(slide);
+        return slide;
+      }),
+      getItem: (i: number) => slides[i],
+    },
+    save: vi.fn(() => new Uint8Array([0x50, 0x4b])),
+    end: vi.fn(),
+    _slides: slides,
+  };
+}
+
+// Mocking python-pptx-wasm
+let mockPrs: ReturnType<typeof createMockPresentation>;
+
+vi.mock("python-pptx-wasm", () => ({
+  Presentation: vi.fn(() => {
+    // the mock prs must be set before calling generatePptx
+    return mockPrs;
+  }),
+  Inches: vi.fn((v: number) => v * 914400),
+  Pt: vi.fn((v: number) => v * 12700),
+}));
+
+// Import after mock
+import { generatePptx } from "../pptx-generator.js";
+
+// === Helpers ===
+
+function heading(level: 1 | 2 | 3 | 4 | 5 | 6, text: string): HeadingElement {
+  return { type: "heading", level, runs: [{ text }] };
+}
+
+function paragraph(text: string): ParagraphElement {
+  return { type: "paragraph", runs: [{ text }] };
+}
+
+function list(
+  items: { text: string; level?: number; ordered?: boolean }[],
+): ListElement {
+  return {
+    type: "list",
+    items: items.map((item) => ({
+      runs: [{ text: item.text }],
+      level: item.level ?? 0,
+      ordered: item.ordered ?? false,
+    })),
+  };
+}
+
+function image(src: string, alt?: string): ImageElement {
+  return { type: "image", image: { src, alt } };
+}
+
+function slideData(
+  content: ContentElement[],
+  notes: string[] = [],
+  layout?: string,
+): SlideData {
+  return { content, notes, directives: [], layout };
+}
+
+function mapping(
+  layoutName: string,
+  assignments: SlideMappingResult["assignments"],
+  fallbackToBlank = false,
+  unmappedContent: ContentElement[] = [],
+): SlideMappingResult {
+  return { layoutName, assignments, fallbackToBlank, unmappedContent };
+}
+
+// === Tests ===
+
+describe("generatePptx", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  describe("基本動作", () => {
+    it("空のプレゼンテーションを生成できる", () => {
+      mockPrs = createMockPresentation(["Blank"]);
+      const parseResult: ParseResult = { frontMatter: {}, slides: [] };
+      const result = generatePptx(parseResult, []);
+
+      expect(result).toBeInstanceOf(Uint8Array);
+      expect(mockPrs.save).toHaveBeenCalled();
+      expect(mockPrs.end).toHaveBeenCalled();
+    });
+
+    it("templateDataが渡された場合Presentationに渡す", async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { Presentation } = (await import("python-pptx-wasm")) as any;
+      mockPrs = createMockPresentation(["Blank"]);
+      const templateData = new Uint8Array([1, 2, 3]);
+      const parseResult: ParseResult = { frontMatter: {}, slides: [] };
+
+      generatePptx(parseResult, [], { templateData });
+
+      expect(Presentation).toHaveBeenCalledWith(templateData);
+    });
+
+    it("エラーが発生してもprs.end()が呼ばれる", () => {
+      mockPrs = createMockPresentation(["Blank"]);
+      mockPrs.save.mockImplementation(() => {
+        throw new Error("save error");
+      });
+      const parseResult: ParseResult = { frontMatter: {}, slides: [] };
+
+      expect(() => generatePptx(parseResult, [])).toThrow("save error");
+      expect(mockPrs.end).toHaveBeenCalled();
+    });
+  });
+
+  describe("スライド生成", () => {
+    it("指定されたレイアウト名でスライドを追加する", () => {
+      mockPrs = createMockPresentation(["Title and Content", "Blank"]);
+      const parseResult: ParseResult = {
+        frontMatter: {},
+        slides: [slideData([])],
+      };
+      const mappings = [mapping("Title and Content", [])];
+
+      generatePptx(parseResult, mappings);
+
+      expect(mockPrs.slides.add_slide).toHaveBeenCalledTimes(1);
+      expect(mockPrs.slide_layouts.get_by_name).toHaveBeenCalledWith(
+        "Title and Content",
+      );
+    });
+
+    it("複数スライドを生成する", () => {
+      mockPrs = createMockPresentation(["Title and Content", "Blank"]);
+      const parseResult: ParseResult = {
+        frontMatter: {},
+        slides: [slideData([]), slideData([]), slideData([])],
+      };
+      const mappings = [
+        mapping("Title and Content", []),
+        mapping("Blank", []),
+        mapping("Title and Content", []),
+      ];
+
+      generatePptx(parseResult, mappings);
+
+      expect(mockPrs.slides.add_slide).toHaveBeenCalledTimes(3);
+    });
+
+    it("レイアウトが見つからない場合最後のレイアウトを使用する", () => {
+      mockPrs = createMockPresentation(["Title Slide", "Blank"]);
+      const parseResult: ParseResult = {
+        frontMatter: {},
+        slides: [slideData([])],
+      };
+      const mappings = [mapping("Non Existent", [])];
+
+      generatePptx(parseResult, mappings);
+
+      expect(mockPrs.slide_layouts.get_by_name).toHaveBeenCalledWith(
+        "Non Existent",
+      );
+      expect(mockPrs.slide_layouts.getItem).toHaveBeenCalledWith(1);
+    });
+
+    it("レイアウトが0件の場合エラーを投げる", () => {
+      mockPrs = createMockPresentation([]);
+      const parseResult: ParseResult = {
+        frontMatter: {},
+        slides: [slideData([])],
+      };
+      const mappings = [mapping("Blank", [])];
+
+      expect(() => generatePptx(parseResult, mappings)).toThrow(
+        "No slide layouts found in template",
+      );
+      expect(mockPrs.end).toHaveBeenCalled();
+    });
+  });
+
+  describe("テキストコンテンツの注入", () => {
+    it("タイトルプレースホルダにテキストを注入する", () => {
+      const titlePh = createMockPlaceholder(0, "title");
+      mockPrs = createMockPresentation(["Title and Content"], () => [titlePh]);
+      const parseResult: ParseResult = {
+        frontMatter: {},
+        slides: [slideData([heading(1, "テストタイトル")])],
+      };
+      const mappings = [
+        mapping("Title and Content", [
+          {
+            placeholderIdx: 0,
+            placeholderType: "title",
+            content: [heading(1, "テストタイトル")],
+          },
+        ]),
+      ];
+
+      generatePptx(parseResult, mappings);
+
+      expect(titlePh.text_frame.clear).toHaveBeenCalled();
+      const firstParagraph = titlePh.text_frame.paragraphs[0];
+      expect(firstParagraph.add_run).toHaveBeenCalled();
+      const run = firstParagraph.runs[0];
+      expect(run.text).toBe("テストタイトル");
+    });
+
+    it("bodyプレースホルダに複数コンテンツを注入する", () => {
+      const bodyPh = createMockPlaceholder(1, "body");
+      mockPrs = createMockPresentation(["Title and Content"], () => [bodyPh]);
+      const parseResult: ParseResult = {
+        frontMatter: {},
+        slides: [slideData([paragraph("段落1"), paragraph("段落2")])],
+      };
+      const mappings = [
+        mapping("Title and Content", [
+          {
+            placeholderIdx: 1,
+            placeholderType: "body",
+            content: [paragraph("段落1"), paragraph("段落2")],
+          },
+        ]),
+      ];
+
+      generatePptx(parseResult, mappings);
+
+      expect(bodyPh.text_frame.clear).toHaveBeenCalled();
+      // First paragraph uses the existing one, second uses add_paragraph
+      expect(bodyPh.text_frame.add_paragraph).toHaveBeenCalledTimes(1);
+    });
+
+    it("リストアイテムにlevelを設定する", () => {
+      const bodyPh = createMockPlaceholder(1, "body");
+      mockPrs = createMockPresentation(["Title and Content"], () => [bodyPh]);
+      const parseResult: ParseResult = {
+        frontMatter: {},
+        slides: [
+          slideData([
+            list([
+              { text: "項目1", level: 0 },
+              { text: "サブ項目", level: 1 },
+              { text: "項目2", level: 0 },
+            ]),
+          ]),
+        ],
+      };
+      const mappings = [
+        mapping("Title and Content", [
+          {
+            placeholderIdx: 1,
+            placeholderType: "body",
+            content: [
+              list([
+                { text: "項目1", level: 0 },
+                { text: "サブ項目", level: 1 },
+                { text: "項目2", level: 0 },
+              ]),
+            ],
+          },
+        ]),
+      ];
+
+      generatePptx(parseResult, mappings);
+
+      // 3 items: first uses existing paragraph, 2 more added
+      expect(bodyPh.text_frame.add_paragraph).toHaveBeenCalledTimes(2);
+      const paragraphs = bodyPh.text_frame.paragraphs;
+      expect(paragraphs[0].level).toBe(0);
+      expect(paragraphs[1].level).toBe(1);
+      expect(paragraphs[2].level).toBe(0);
+    });
+  });
+
+  describe("テキストフォーマット", () => {
+    it("boldとitalicのフォーマットを適用する", () => {
+      const bodyPh = createMockPlaceholder(1, "body");
+      mockPrs = createMockPresentation(["Title and Content"], () => [bodyPh]);
+      const parseResult: ParseResult = {
+        frontMatter: {},
+        slides: [
+          slideData([
+            {
+              type: "paragraph",
+              runs: [
+                { text: "通常", bold: false, italic: false },
+                { text: "太字", bold: true },
+                { text: "斜体", italic: true },
+              ],
+            } as ParagraphElement,
+          ]),
+        ],
+      };
+      const mappings = [
+        mapping("Title and Content", [
+          {
+            placeholderIdx: 1,
+            placeholderType: "body",
+            content: parseResult.slides[0].content,
+          },
+        ]),
+      ];
+
+      generatePptx(parseResult, mappings);
+
+      const p = bodyPh.text_frame.paragraphs[0];
+      expect(p.runs).toHaveLength(3);
+      expect(p.runs[0].text).toBe("通常");
+      expect(p.runs[0].font.bold).toBeUndefined();
+      expect(p.runs[1].text).toBe("太字");
+      expect(p.runs[1].font.bold).toBe(true);
+      expect(p.runs[2].text).toBe("斜体");
+      expect(p.runs[2].font.italic).toBe(true);
+    });
+
+    it("codeフォーマットでCourier Newフォントを適用する", () => {
+      const bodyPh = createMockPlaceholder(1, "body");
+      mockPrs = createMockPresentation(["Title and Content"], () => [bodyPh]);
+      const parseResult: ParseResult = {
+        frontMatter: {},
+        slides: [
+          slideData([
+            {
+              type: "paragraph",
+              runs: [{ text: "code_text", code: true }],
+            } as ParagraphElement,
+          ]),
+        ],
+      };
+      const mappings = [
+        mapping("Title and Content", [
+          {
+            placeholderIdx: 1,
+            placeholderType: "body",
+            content: parseResult.slides[0].content,
+          },
+        ]),
+      ];
+
+      generatePptx(parseResult, mappings);
+
+      const run = bodyPh.text_frame.paragraphs[0].runs[0];
+      expect(run.font.name).toBe("Courier New");
+    });
+
+    it("linkフォーマットでハイパーリンクを設定する", () => {
+      const bodyPh = createMockPlaceholder(1, "body");
+      mockPrs = createMockPresentation(["Title and Content"], () => [bodyPh]);
+      const parseResult: ParseResult = {
+        frontMatter: {},
+        slides: [
+          slideData([
+            {
+              type: "paragraph",
+              runs: [{ text: "リンク", link: "https://example.com" }],
+            } as ParagraphElement,
+          ]),
+        ],
+      };
+      const mappings = [
+        mapping("Title and Content", [
+          {
+            placeholderIdx: 1,
+            placeholderType: "body",
+            content: parseResult.slides[0].content,
+          },
+        ]),
+      ];
+
+      generatePptx(parseResult, mappings);
+
+      const run = bodyPh.text_frame.paragraphs[0].runs[0];
+      expect(run.hyperlink.address).toBe("https://example.com");
+    });
+  });
+
+  describe("画像コンテンツの注入", () => {
+    it("pictureプレースホルダに画像を注入する", () => {
+      const picPh = createMockPlaceholder(2, "picture");
+      mockPrs = createMockPresentation(["Picture with Caption"], () => [picPh]);
+      const imageData = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
+      const imageResolver = vi.fn((src: string) => {
+        if (src === "photo.png") return imageData;
+        return undefined;
+      });
+
+      const parseResult: ParseResult = {
+        frontMatter: {},
+        slides: [slideData([image("photo.png")])],
+      };
+      const mappings = [
+        mapping("Picture with Caption", [
+          {
+            placeholderIdx: 2,
+            placeholderType: "picture",
+            content: [image("photo.png")],
+          },
+        ]),
+      ];
+
+      generatePptx(parseResult, mappings, { imageResolver });
+
+      expect(imageResolver).toHaveBeenCalledWith("photo.png");
+      expect(picPh.insert_picture).toHaveBeenCalledWith(imageData);
+    });
+
+    it("imageResolverが未指定の場合画像注入をスキップする", () => {
+      const picPh = createMockPlaceholder(2, "picture");
+      mockPrs = createMockPresentation(["Picture with Caption"], () => [picPh]);
+
+      const parseResult: ParseResult = {
+        frontMatter: {},
+        slides: [slideData([image("photo.png")])],
+      };
+      const mappings = [
+        mapping("Picture with Caption", [
+          {
+            placeholderIdx: 2,
+            placeholderType: "picture",
+            content: [image("photo.png")],
+          },
+        ]),
+      ];
+
+      generatePptx(parseResult, mappings);
+
+      expect(picPh.insert_picture).not.toHaveBeenCalled();
+    });
+
+    it("imageResolverがundefinedを返す場合画像注入をスキップする", () => {
+      const picPh = createMockPlaceholder(2, "picture");
+      mockPrs = createMockPresentation(["Picture with Caption"], () => [picPh]);
+      const imageResolver = vi.fn(() => undefined);
+
+      const parseResult: ParseResult = {
+        frontMatter: {},
+        slides: [slideData([image("missing.png")])],
+      };
+      const mappings = [
+        mapping("Picture with Caption", [
+          {
+            placeholderIdx: 2,
+            placeholderType: "picture",
+            content: [image("missing.png")],
+          },
+        ]),
+      ];
+
+      generatePptx(parseResult, mappings, { imageResolver });
+
+      expect(picPh.insert_picture).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("スピーカーノート", () => {
+    it("スライドにノートを追加する", () => {
+      mockPrs = createMockPresentation(["Blank"], () => []);
+      const parseResult: ParseResult = {
+        frontMatter: {},
+        slides: [slideData([], ["ノート1行目", "ノート2行目"])],
+      };
+      const mappings = [mapping("Blank", [])];
+
+      generatePptx(parseResult, mappings);
+
+      const slide = mockPrs._slides[0];
+      expect(slide.notes_slide.notes_text_frame.text).toBe(
+        "ノート1行目\nノート2行目",
+      );
+    });
+
+    it("ノートが空の場合ノートを設定しない", () => {
+      mockPrs = createMockPresentation(["Blank"], () => []);
+      const parseResult: ParseResult = {
+        frontMatter: {},
+        slides: [slideData([], [])],
+      };
+      const mappings = [mapping("Blank", [])];
+
+      generatePptx(parseResult, mappings);
+
+      const slide = mockPrs._slides[0];
+      expect(slide.notes_slide.notes_text_frame.text).toBe("");
+    });
+  });
+
+  describe("複合シナリオ", () => {
+    it("複数スライド・複数プレースホルダの注入を正しく行う", () => {
+      const slide1Phs = [
+        createMockPlaceholder(0, "title"),
+        createMockPlaceholder(1, "body"),
+      ];
+      const slide2Phs = [
+        createMockPlaceholder(0, "title"),
+        createMockPlaceholder(2, "picture"),
+      ];
+      let slideIndex = 0;
+      mockPrs = createMockPresentation(
+        ["Title and Content", "Picture with Caption"],
+        () => {
+          const phs = slideIndex === 0 ? slide1Phs : slide2Phs;
+          slideIndex++;
+          return phs;
+        },
+      );
+
+      const imageData = new Uint8Array([1, 2, 3]);
+      const imageResolver = vi.fn(() => imageData);
+
+      const parseResult: ParseResult = {
+        frontMatter: {},
+        slides: [
+          slideData(
+            [
+              heading(1, "スライド1"),
+              paragraph("本文"),
+              list([{ text: "項目" }]),
+            ],
+            ["ノート1"],
+          ),
+          slideData([heading(1, "スライド2"), image("img.png")]),
+        ],
+      };
+
+      const mappings = [
+        mapping("Title and Content", [
+          {
+            placeholderIdx: 0,
+            placeholderType: "title",
+            content: [heading(1, "スライド1")],
+          },
+          {
+            placeholderIdx: 1,
+            placeholderType: "body",
+            content: [paragraph("本文"), list([{ text: "項目" }])],
+          },
+        ]),
+        mapping("Picture with Caption", [
+          {
+            placeholderIdx: 0,
+            placeholderType: "title",
+            content: [heading(1, "スライド2")],
+          },
+          {
+            placeholderIdx: 2,
+            placeholderType: "picture",
+            content: [image("img.png")],
+          },
+        ]),
+      ];
+
+      const result = generatePptx(parseResult, mappings, { imageResolver });
+
+      expect(result).toBeInstanceOf(Uint8Array);
+      expect(mockPrs.slides.add_slide).toHaveBeenCalledTimes(2);
+
+      // スライド1: タイトルとボディ
+      const s1TitleRun = slide1Phs[0].text_frame.paragraphs[0].runs[0];
+      expect(s1TitleRun.text).toBe("スライド1");
+
+      // スライド2: 画像
+      expect(slide2Phs[1].insert_picture).toHaveBeenCalledWith(imageData);
+
+      // ノート
+      const slide1 = mockPrs._slides[0];
+      expect(slide1.notes_slide.notes_text_frame.text).toBe("ノート1");
+    });
+  });
+});
