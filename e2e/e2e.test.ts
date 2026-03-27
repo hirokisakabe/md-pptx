@@ -214,6 +214,26 @@ describe("E2E: 生成PPTXの内容検証", () => {
     expect(slideXml).toContain("Title 1");
   });
 
+  it("sample.mdからPPTXを生成するとレイアウト指定スライドにテキストが含まれる", async () => {
+    const md = readFileSync(
+      join(__dirname, "..", "sample", "sample.md"),
+      "utf-8",
+    );
+    const pptxData = buildPptx(md);
+
+    assertValidPptx(pptxData);
+
+    const zip = await JSZip.loadAsync(pptxData);
+
+    // スライド1: _layout: Title Slide → タイトルテキストが注入される
+    const slide1 = await zip.file("ppt/slides/slide1.xml")!.async("string");
+    expect(slide1).toContain("md-pptx サンプル");
+
+    // スライド6: _layout: Title Slide → タイトルテキストが注入される
+    const slide6 = await zip.file("ppt/slides/slide6.xml")!.async("string");
+    expect(slide6).toContain("ご清聴ありがとうございました");
+  });
+
   it("生成PPTXをファイルに保存して再読み込みできる", () => {
     const md = readFixture("multi-slide.md");
     const pptxData = buildPptx(md);
