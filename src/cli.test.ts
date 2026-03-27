@@ -9,14 +9,14 @@ import {
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
-vi.mock("./parser.js", () => ({
+vi.mock("./core/parser.js", () => ({
   parseMarkdown: vi.fn(() => ({
     frontMatter: {},
     slides: [{ layout: undefined, content: [], notes: [], directives: [] }],
   })),
 }));
 
-vi.mock("./template-reader.js", () => ({
+vi.mock("./core/template-reader.js", () => ({
   readTemplate: vi.fn(() => ({
     layouts: [
       {
@@ -31,7 +31,7 @@ vi.mock("./template-reader.js", () => ({
   })),
 }));
 
-vi.mock("./placeholder-mapper.js", () => ({
+vi.mock("./core/placeholder-mapper.js", () => ({
   mapPresentation: vi.fn(() => [
     {
       layoutName: "Blank",
@@ -42,14 +42,14 @@ vi.mock("./placeholder-mapper.js", () => ({
   ]),
 }));
 
-vi.mock("./pptx-generator.js", () => ({
+vi.mock("./core/pptx-generator.js", () => ({
   generatePptx: vi.fn(() => new Uint8Array([0x50, 0x4b, 0x03, 0x04])),
 }));
 
-import { parseMarkdown } from "./parser.js";
-import { readTemplate } from "./template-reader.js";
-import { mapPresentation } from "./placeholder-mapper.js";
-import { generatePptx } from "./pptx-generator.js";
+import { parseMarkdown } from "./core/parser.js";
+import { readTemplate } from "./core/template-reader.js";
+import { mapPresentation } from "./core/placeholder-mapper.js";
+import { generatePptx } from "./core/pptx-generator.js";
 import { buildAction, inspectAction, createProgram } from "./cli.js";
 
 describe("CLI", () => {

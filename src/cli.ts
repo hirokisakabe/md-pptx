@@ -2,10 +2,10 @@ import { readFileSync, writeFileSync, realpathSync } from "node:fs";
 import { resolve, dirname, basename, extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Command } from "commander";
-import { parseMarkdown } from "./parser.js";
-import { readTemplate } from "./template-reader.js";
-import { mapPresentation } from "./placeholder-mapper.js";
-import { generatePptx } from "./pptx-generator.js";
+import { parseMarkdown } from "./core/parser.js";
+import { readTemplate } from "./core/template-reader.js";
+import { mapPresentation } from "./core/placeholder-mapper.js";
+import { generatePptx } from "./core/pptx-generator.js";
 
 export function buildAction(
   markdownPath: string,

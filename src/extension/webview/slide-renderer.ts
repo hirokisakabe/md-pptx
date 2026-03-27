@@ -7,7 +7,7 @@ import type {
   ContentElement,
   SlideLayoutBackground,
   BackgroundExtractionResult,
-} from "md-pptx";
+} from "../../core/types.js";
 
 /** Webview に送信するスライドデータ */
 export interface SlideRenderData {

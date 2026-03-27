@@ -1,8 +1,8 @@
 import * as vscode from "vscode";
 import * as path from "node:path";
 import * as fs from "node:fs";
-import { parseMarkdown, extractBackgrounds } from "md-pptx";
-import type { BackgroundExtractionResult } from "md-pptx";
+import { parseMarkdown, extractBackgrounds } from "../../index.js";
+import type { BackgroundExtractionResult } from "../../index.js";
 import { buildSlideRenderData, buildShellHtml } from "./slide-renderer";
 import type { SlideRenderData } from "./slide-renderer";
 

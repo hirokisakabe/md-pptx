@@ -1,19 +1,63 @@
 {
   "name": "md-pptx",
+  "displayName": "md-pptx",
   "version": "0.0.0",
   "description": "Marp風Markdown → テンプレートPPTX出力ツール",
+  "publisher": "hirokisakabe",
   "type": "module",
-  "main": "./dist/index.js",
+  "main": "./dist/extension.cjs",
   "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
   "bin": {
     "md-pptx": "./dist/cli.js"
   },
   "files": [
     "dist"
   ],
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onLanguage:markdown"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "md-pptx.build",
+        "title": "md-pptx: Build PPTX"
+      },
+      {
+        "command": "md-pptx.preview",
+        "title": "md-pptx: Preview"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "md-pptx.build",
+          "when": "editorLangId == markdown"
+        },
+        {
+          "command": "md-pptx.preview",
+          "when": "editorLangId == markdown"
+        }
+      ]
+    }
+  },
   "scripts": {
+    "vscode:prepublish": "npm run build && npm run build:extension",
     "build": "tsup",
+    "build:extension": "node esbuild.mjs",
     "dev": "tsup --watch",
+    "watch:extension": "node esbuild.mjs --watch",
     "test": "vitest run",
     "test:e2e": "bash e2e/scripts/download-recipes.sh && vitest run --config vitest.config.e2e.ts",
     "test:e2e:setup": "bash e2e/scripts/download-recipes.sh",
@@ -22,7 +66,8 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "package": "vsce package"
   },
   "keywords": [],
   "license": "MIT",
@@ -37,6 +82,8 @@
     "@eslint/js": "^10.0.1",
     "@types/markdown-it": "^14.1.2",
     "@types/node": "^25.5.0",
+    "@types/vscode": "^1.100.0",
+    "esbuild": "^0.25.0",
     "eslint": "^10.1.0",
     "eslint-config-prettier": "^10.1.8",
     "prettier": "^3.8.1",
