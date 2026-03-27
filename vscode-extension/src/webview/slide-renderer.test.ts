@@ -3,7 +3,7 @@ import {
   buildSlideRenderData,
   resolveBackground,
   resolveContentImages,
-} from "../slide-renderer";
+} from "./slide-renderer";
 import type { SlideData, BackgroundExtractionResult } from "md-pptx";
 
 describe("buildSlideRenderData", () => {

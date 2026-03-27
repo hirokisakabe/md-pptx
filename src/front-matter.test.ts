@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { extractFrontMatter } from "../front-matter.js";
+import { extractFrontMatter } from "./front-matter.js";
 
 describe("extractFrontMatter", () => {
   it("should parse front matter with all keys", () => {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseDirective, extractCommentContent } from "../directives.js";
+import { parseDirective, extractCommentContent } from "./directives.js";
 
 describe("parseDirective", () => {
   it("should parse local directive", () => {

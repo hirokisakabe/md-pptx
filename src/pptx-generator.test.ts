@@ -8,7 +8,7 @@ import type {
   ParagraphElement,
   ListElement,
   ImageElement,
-} from "../types.js";
+} from "./types.js";
 
 // === Mock Setup ===
 
@@ -146,7 +146,7 @@ vi.mock("python-pptx-wasm", () => ({
 }));
 
 // Import after mock
-import { generatePptx } from "../pptx-generator.js";
+import { generatePptx } from "./pptx-generator.js";
 
 // === Helpers ===
 

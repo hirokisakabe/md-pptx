@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildShellHtml } from "../slide-renderer";
+import { buildShellHtml } from "./slide-renderer";
 
 describe("buildShellHtml", () => {
   it("有効な HTML を返す", () => {
