@@ -113,6 +113,37 @@ export interface TemplateInfo {
   layouts: LayoutInfo[];
 }
 
+// === Slide Master Background ===
+
+export interface SlideMasterBackground {
+  /** スライドマスター名 */
+  masterName: string;
+  /** 背景画像のMIMEタイプ (e.g. "image/png", "image/jpeg") */
+  contentType: string;
+  /** 背景画像のバイナリデータ */
+  data: Uint8Array;
+  /** Data URL (Webview表示用) */
+  dataUrl: string;
+}
+
+export interface SlideLayoutBackground {
+  /** スライドレイアウト名 */
+  layoutName: string;
+  /** 背景画像のMIMEタイプ */
+  contentType: string;
+  /** 背景画像のバイナリデータ */
+  data: Uint8Array;
+  /** Data URL (Webview表示用) */
+  dataUrl: string;
+}
+
+export interface BackgroundExtractionResult {
+  /** スライドマスターの背景画像一覧 */
+  masters: SlideMasterBackground[];
+  /** スライドレイアウトの背景画像一覧（レイアウト固有の背景を持つもののみ） */
+  layouts: SlideLayoutBackground[];
+}
+
 // === Placeholder Mapping ===
 
 export interface PlaceholderAssignment {
