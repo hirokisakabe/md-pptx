@@ -7,6 +7,7 @@ export {
 } from "./placeholder-mapper.js";
 export { generatePptx } from "./pptx-generator.js";
 export type { GenerateOptions } from "./pptx-generator.js";
+export { extractBackgrounds } from "./slide-master-extractor.js";
 export type {
   ParseResult,
   FrontMatter,
@@ -27,4 +28,7 @@ export type {
   TemplateInfo,
   PlaceholderAssignment,
   SlideMappingResult,
+  SlideMasterBackground,
+  SlideLayoutBackground,
+  BackgroundExtractionResult,
 } from "./types.js";
