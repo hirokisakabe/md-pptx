@@ -24,6 +24,7 @@ npm run format:check   # Prettier チェック
 ```
 
 単一テストファイルの実行:
+
 ```bash
 npx vitest run src/__tests__/parser.test.ts
 ```
@@ -56,6 +57,7 @@ Markdown + Template PPTX
 ### ビルド構成
 
 tsup で 2 つのエントリポイントをビルド（ESM のみ）:
+
 - `src/index.ts` → ライブラリ（外部パッケージから利用）
 - `src/cli.ts` → CLI コマンド `md-pptx build` / `md-pptx inspect`
 
