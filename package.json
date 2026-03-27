@@ -1,9 +1,13 @@
 {
   "name": "md-pptx",
   "displayName": "md-pptx",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Markdown とテンプレート PPTX から編集可能な PowerPoint ファイルを生成するツール",
   "publisher": "hirokisakabe",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hirokisakabe/md-pptx.git"
+  },
   "type": "module",
   "main": "./dist/extension.cjs",
   "types": "./dist/index.d.ts",
@@ -16,14 +20,12 @@
   "bin": {
     "md-pptx": "./dist/cli.js"
   },
-  "files": [
-    "dist"
-  ],
   "engines": {
     "vscode": "^1.100.0"
   },
   "categories": [
-    "Other"
+    "Programming Languages",
+    "Formatters"
   ],
   "activationEvents": [
     "onLanguage:markdown"
