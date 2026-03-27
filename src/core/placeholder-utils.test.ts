@@ -15,6 +15,10 @@ describe("toPlaceholderType", () => {
     expect(toPlaceholderType(2)).toBe("body");
   });
 
+  it("OBJECT (7) を body に変換する", () => {
+    expect(toPlaceholderType(7)).toBe("body");
+  });
+
   it("SUBTITLE (4) を subtitle に変換する", () => {
     expect(toPlaceholderType(4)).toBe("subtitle");
   });
