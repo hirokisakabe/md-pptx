@@ -5,7 +5,7 @@
   "description": "Markdown とテンプレート PPTX から編集可能な PowerPoint ファイルを生成するツール",
   "publisher": "hirokisakabe",
   "type": "module",
-  "main": "./dist/extension.cjs",
+  "main": "./dist/extension.mjs",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {

@@ -6,9 +6,9 @@ const watch = process.argv.includes("--watch");
 const buildOptions = {
   entryPoints: ["src/extension/extension.ts"],
   bundle: true,
-  outfile: "dist/extension.cjs",
-  external: ["vscode", "pyodide"],
-  format: "cjs",
+  outfile: "dist/extension.mjs",
+  external: ["vscode", "pyodide", "python-pptx-wasm"],
+  format: "esm",
   platform: "node",
   target: "node22",
   sourcemap: true,
