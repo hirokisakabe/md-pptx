@@ -69,7 +69,8 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "package": "vsce package"
+    "package": "vsce package",
+    "version": "changeset version && npm install --package-lock-only"
   },
   "keywords": [],
   "license": "MIT",
@@ -81,6 +82,7 @@
     "python-pptx-wasm": "^0.0.1"
   },
   "devDependencies": {
+    "@changesets/cli": "^2.30.0",
     "@eslint/js": "^10.0.1",
     "@types/markdown-it": "^14.1.2",
     "@types/node": "^25.5.0",
