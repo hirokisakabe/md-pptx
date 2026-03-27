@@ -81,7 +81,9 @@ export function createProgram(): Command {
 
   program
     .name("md-pptx")
-    .description("Marp風Markdown → テンプレートPPTX出力ツール")
+    .description(
+      "Markdown とテンプレート PPTX から編集可能な PowerPoint ファイルを生成するツール",
+    )
     .version("0.0.0");
 
   program
