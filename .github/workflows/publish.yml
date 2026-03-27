@@ -59,7 +59,21 @@ jobs:
       - name: Build Extension
         run: npm run build:extension
 
+      - name: Check if version is already published
+        id: check-published
+        run: |
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          PUBLISHED_VERSION="$(npx vsce show hirokisakabe.md-pptx --json 2>/dev/null | node -p "JSON.parse(require('fs').readFileSync('/dev/stdin','utf8')).versions[0].version" 2>/dev/null || echo "")"
+          if [ "$PKG_VERSION" = "$PUBLISHED_VERSION" ]; then
+            echo "Version $PKG_VERSION is already published, skipping"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Publishing version $PKG_VERSION (current published: ${PUBLISHED_VERSION:-none})"
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Publish to VS Code Marketplace
+        if: steps.check-published.outputs.skip != 'true'
         run: npx vsce publish
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
