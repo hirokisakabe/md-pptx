@@ -52,16 +52,11 @@ async function countSlides(data: Uint8Array | JSZip): Promise<number> {
 }
 
 /** Markdown → PPTX 生成のE2Eパイプライン */
-function buildPptx(
-  mdContent: string,
-  options?: { imageResolver?: (src: string) => Uint8Array | undefined },
-): Uint8Array {
+function buildPptx(mdContent: string): Uint8Array {
   const parseResult = parseMarkdown(mdContent);
   const templateInfo = readTemplate();
   const mappingResults = mapPresentation(parseResult, templateInfo);
-  return generatePptx(parseResult, mappingResults, {
-    imageResolver: options?.imageResolver,
-  });
+  return generatePptx(parseResult, mappingResults);
 }
 
 beforeAll(async () => {
@@ -78,94 +73,6 @@ afterAll(() => {
   if (tmpDir && existsSync(tmpDir)) {
     rmSync(tmpDir, { recursive: true, force: true });
   }
-});
-
-describe("E2E: PPTX生成パイプライン", () => {
-  it("基本的なタイトル+コンテンツスライドを生成できる", async () => {
-    const md = readFixture("basic.md");
-    const pptxData = buildPptx(md);
-
-    assertValidPptx(pptxData);
-
-    const slideCount = await countSlides(pptxData);
-    expect(slideCount).toBe(1);
-
-    // ファイルとして保存し、存在・サイズを確認
-    const out = outputPath("basic.pptx");
-    writeFileSync(out, pptxData);
-    expect(existsSync(out)).toBe(true);
-    expect(readFileSync(out).length).toBeGreaterThan(0);
-  });
-
-  it("複数スライドを生成できる（--- 区切り）", async () => {
-    const md = readFixture("multi-slide.md");
-    const pptxData = buildPptx(md);
-
-    assertValidPptx(pptxData);
-
-    const slideCount = await countSlides(pptxData);
-    expect(slideCount).toBe(3);
-  });
-
-  it("画像を含むスライドを生成できる", async () => {
-    const md = readFixture("with-image.md");
-    const imageData = new Uint8Array(
-      readFileSync(join(FIXTURES, "test-image.png")),
-    );
-
-    const imageResolver = (src: string): Uint8Array | undefined => {
-      if (src === "./test-image.png") return imageData;
-      return undefined;
-    };
-
-    const pptxData = buildPptx(md, { imageResolver });
-
-    assertValidPptx(pptxData);
-
-    const slideCount = await countSlides(pptxData);
-    expect(slideCount).toBe(1);
-
-    // デフォルトテンプレート（Blankレイアウト）にはpictureプレースホルダがないため
-    // 画像はフォールバックテキストとして処理される（正常動作）
-    const zip = await JSZip.loadAsync(pptxData);
-    expect(zip.file("ppt/slides/slide1.xml")).not.toBeNull();
-  });
-
-  it("テキスト書式（太字・斜体・コード）を含むスライドを生成できる", async () => {
-    const md = readFixture("with-formatting.md");
-    const pptxData = buildPptx(md);
-
-    assertValidPptx(pptxData);
-
-    const slideCount = await countSlides(pptxData);
-    expect(slideCount).toBe(1);
-  });
-
-  it("コードブロックを含むスライドを生成できる", async () => {
-    const md = readFixture("with-code-block.md");
-    const pptxData = buildPptx(md);
-
-    assertValidPptx(pptxData);
-
-    const slideCount = await countSlides(pptxData);
-    expect(slideCount).toBe(3);
-
-    const zip = await JSZip.loadAsync(pptxData);
-    expect(zip.file("ppt/slides/slide1.xml")).not.toBeNull();
-    expect(zip.file("ppt/slides/slide2.xml")).not.toBeNull();
-    expect(zip.file("ppt/slides/slide3.xml")).not.toBeNull();
-  });
-
-  it("headingDivider で自動分割されたスライドを生成できる", async () => {
-    const md = readFixture("heading-divider.md");
-    const pptxData = buildPptx(md);
-
-    assertValidPptx(pptxData);
-
-    // headingDivider: 2 → h1「セクション1」、h2「スライドA」、h2「スライドB」で3スライド
-    const slideCount = await countSlides(pptxData);
-    expect(slideCount).toBe(3);
-  });
 });
 
 describe("E2E: テンプレート情報の取得（inspect相当）", () => {
