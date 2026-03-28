@@ -1,109 +1,55 @@
 /**
- * Webview 用スライドレンダリングの純粋関数群。
- * VS Code API に依存しないため、ユニットテスト可能。
+ * Webview 用 HTML 構築。
+ * pptx-glimpse で生成した SVG を表示する。
  */
-import type {
-  SlideData,
-  ContentElement,
-  SlideLayoutBackground,
-  BackgroundExtractionResult,
-} from "../../core/types.js";
 
-/** Webview に送信するスライドデータ */
-export interface SlideRenderData {
-  layout?: string;
-  backgroundDataUrl?: string;
-  content: ContentElement[];
-  notes: string[];
-}
+const SLIDE_WIDTH = 960;
+
+const ZOOM_LEVELS = [
+  { label: "Fit", value: "fit" },
+  { label: "50%", value: "50" },
+  { label: "75%", value: "75" },
+  { label: "100%", value: "100" },
+  { label: "150%", value: "150" },
+];
 
 /**
- * SlideData[] を WebView 用の SlideRenderData[] に変換する。
- *
- * @param slides パース済みスライドデータ
- * @param backgrounds テンプレートから抽出した背景画像（省略可）
- * @param resolveImageSrc 画像パスを webview URI 等に変換する関数（省略可）
+ * SVG スライドを埋め込んだ完全な HTML を構築する。
  */
-export function buildSlideRenderData(
-  slides: SlideData[],
-  backgrounds?: BackgroundExtractionResult,
-  resolveImageSrc?: (src: string) => string,
-): SlideRenderData[] {
-  return slides.map((slide) => {
-    const backgroundDataUrl = resolveBackground(slide, backgrounds);
-    const content = resolveImageSrc
-      ? slide.content.map((el: ContentElement) =>
-          resolveContentImages(el, resolveImageSrc),
-        )
-      : slide.content;
+export function buildHtml(svgs: string[], defaultZoom = "fit"): string {
+  const zoomButtons = ZOOM_LEVELS.map(
+    (z) =>
+      `<button class="zoom-btn" data-zoom="${z.value}">${z.label}</button>`,
+  ).join("\n        ");
 
-    return {
-      layout: slide.layout,
-      backgroundDataUrl,
-      content,
-      notes: slide.notes,
-    };
-  });
-}
+  const zoomStyles = ZOOM_LEVELS.filter((z) => z.value !== "fit")
+    .map(
+      (z) =>
+        `body[data-zoom="${z.value}"] .slide-frame svg { width: ${SLIDE_WIDTH * (parseInt(z.value) / 100)}px; height: auto; }`,
+    )
+    .join("\n    ");
 
-/**
- * スライドのレイアウト名に基づいて背景画像を解決する。
- */
-export function resolveBackground(
-  slide: SlideData,
-  backgrounds?: BackgroundExtractionResult,
-): string | undefined {
-  if (!backgrounds) return undefined;
+  const slideElements =
+    svgs.length > 0
+      ? svgs
+          .map(
+            (svg, i) => `
+    <div class="slide-wrapper">
+      <div class="slide-label">Slide ${i + 1}</div>
+      <div class="slide-frame">
+        ${svg}
+      </div>
+    </div>`,
+          )
+          .join("")
+      : '<p class="empty-state">スライドが見つかりません。</p>';
 
-  if (slide.layout) {
-    const layoutBg = backgrounds.layouts.find(
-      (l: SlideLayoutBackground) => l.layoutName === slide.layout,
-    );
-    if (layoutBg) return layoutBg.dataUrl;
-  }
-
-  // マスター背景にフォールバック
-  if (backgrounds.masters.length > 0) {
-    return backgrounds.masters[0].dataUrl;
-  }
-
-  return undefined;
-}
-
-/**
- * コンテンツ内の画像パスを変換する。
- */
-export function resolveContentImages(
-  element: ContentElement,
-  resolveImageSrc: (src: string) => string,
-): ContentElement {
-  if (element.type !== "image") return element;
-
-  const imgSrc = element.image.src;
-
-  // 既に data URL や http URL の場合はそのまま
-  if (imgSrc.startsWith("data:") || imgSrc.startsWith("http")) {
-    return element;
-  }
-
-  const resolved = resolveImageSrc(imgSrc);
-  return {
-    ...element,
-    image: { ...element.image, src: resolved },
-  };
-}
-
-/**
- * Webview の初期 HTML シェルを構築する。
- * スライド描画は JS 側で postMessage 経由で行う。
- */
-export function buildShellHtml(): string {
   return /* html */ `<!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src vscode-resource: https: data:;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:; font-src data:;">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -115,9 +61,41 @@ export function buildShellHtml(): string {
       overflow: hidden;
     }
 
-    /* ── Slide viewport ── */
-    .slide-viewport {
-      height: 100vh;
+    /* ── Toolbar ── */
+    .toolbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      gap: 4px;
+      padding: 8px 16px;
+      background: var(--vscode-editor-background);
+      border-bottom: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.2));
+    }
+
+    .zoom-btn {
+      padding: 4px 10px;
+      font-size: 12px;
+      border: 1px solid var(--vscode-button-border, rgba(128,128,128,0.3));
+      border-radius: 3px;
+      background: var(--vscode-button-secondaryBackground, transparent);
+      color: var(--vscode-button-secondaryForeground, inherit);
+      cursor: pointer;
+    }
+
+    .zoom-btn:hover {
+      background: var(--vscode-button-secondaryHoverBackground, rgba(128,128,128,0.2));
+    }
+
+    .zoom-btn.active {
+      background: var(--vscode-button-background);
+      color: var(--vscode-button-foreground);
+      border-color: var(--vscode-button-background);
+    }
+
+    /* ── Slides container ── */
+    .slides-container {
+      height: calc(100vh - 41px);
       overflow-y: auto;
       display: flex;
       flex-direction: column;
@@ -126,332 +104,118 @@ export function buildShellHtml(): string {
       gap: 24px;
     }
 
+    .slide-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .slide-label {
+      font-size: 11px;
+      color: var(--vscode-descriptionForeground);
+    }
+
     .slide-frame {
-      position: relative;
-      width: 100%;
-      max-width: 960px;
-      min-width: 480px;
-      aspect-ratio: 16 / 9;
-      flex-shrink: 0;
-      background: #ffffff;
-      color: #333333;
       border-radius: 4px;
       overflow: hidden;
       box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+      line-height: 0;
     }
 
-    .slide-bg {
-      position: absolute;
-      inset: 0;
-      background-size: cover;
-      background-position: center;
-      z-index: 0;
+    .slide-frame svg {
+      display: block;
     }
 
-    .slide-content {
-      position: absolute;
-      inset: 0;
-      z-index: 1;
-      display: flex;
-      flex-direction: column;
-      padding: 8% 8%;
+    /* ── Zoom: fit ── */
+    body[data-zoom="fit"] .slide-frame svg {
+      width: 100%;
+      max-width: ${SLIDE_WIDTH}px;
+      height: auto;
     }
 
-    .slide-content[data-has-title="true"] .title-area {
-      flex: 0 0 auto;
-      margin-bottom: 4%;
-    }
+    /* ── Zoom: fixed sizes ── */
+    ${zoomStyles}
 
-    .slide-content .body-area {
-      flex: 1;
-      overflow: hidden;
-    }
-
-    /* ── Typography ── */
-    .slide-frame h1 {
-      font-size: 2.4em;
-      font-weight: 700;
-      margin: 0 0 0.3em;
-      line-height: 1.2;
-    }
-    .slide-frame h2 {
-      font-size: 1.8em;
-      font-weight: 600;
-      margin: 0 0 0.3em;
-      line-height: 1.2;
-    }
-    .slide-frame h3 {
-      font-size: 1.4em;
-      font-weight: 600;
-      margin: 0 0 0.3em;
-      line-height: 1.3;
-    }
-    .slide-frame h4, .slide-frame h5, .slide-frame h6 {
-      font-size: 1.1em;
-      font-weight: 600;
-      margin: 0 0 0.2em;
-      line-height: 1.3;
-    }
-    .slide-frame p {
-      margin: 0.3em 0;
-      line-height: 1.5;
-      font-size: 1em;
-    }
-    .slide-frame ul, .slide-frame ol {
-      margin: 0.3em 0;
-      padding-left: 1.5em;
-      line-height: 1.5;
-    }
-    .slide-frame li {
-      margin: 0.15em 0;
-    }
-    .slide-frame code {
-      font-family: "SF Mono", Monaco, Consolas, "Liberation Mono", monospace;
-      background: rgba(0, 0, 0, 0.06);
-      padding: 1px 4px;
-      border-radius: 3px;
-      font-size: 0.9em;
-    }
-    .slide-frame a {
-      color: #0066cc;
-      text-decoration: underline;
-    }
-    .slide-frame s {
-      text-decoration: line-through;
-    }
-
-    .slide-frame .slide-image {
-      max-width: 100%;
-      max-height: 300px;
-      object-fit: contain;
-      border-radius: 4px;
-    }
-
-    .slide-frame .image-placeholder {
-      display: inline-block;
-      padding: 8px 12px;
-      border: 1px dashed #999;
-      border-radius: 4px;
-      font-style: italic;
-      color: #999;
-    }
-
-    /* ── Title Slide layout ── */
-    .layout-title-slide .slide-content {
-      justify-content: center;
-      align-items: center;
-      text-align: center;
-    }
-
-    /* ── Empty state ── */
-    .empty-state {
+    /* ── Empty / Error state ── */
+    .empty-state, .error-state {
       color: var(--vscode-descriptionForeground);
       font-style: italic;
       text-align: center;
       padding-top: 40%;
     }
 
-    /* ── Layout label ── */
-    .slide-layout-label {
-      position: absolute;
-      bottom: 6px;
-      left: 10px;
-      font-size: 10px;
-      color: rgba(0,0,0,0.3);
-      z-index: 2;
+    .error-state {
+      color: var(--vscode-errorForeground, #f44);
     }
   </style>
 </head>
-<body>
-  <div class="slide-viewport" id="viewport">
-    <p class="empty-state">スライドを読み込み中...</p>
+<body data-zoom="${defaultZoom}">
+  <div class="toolbar">
+    ${zoomButtons}
+  </div>
+  <div class="slides-container" id="container">
+    ${slideElements}
   </div>
 
   <script>
     (function () {
-      const vscode = acquireVsCodeApi();
-      const viewport = document.getElementById("viewport");
+      var vscode = acquireVsCodeApi();
 
-      let slides = [];
+      // ── Restore zoom state ──
+      var savedState = vscode.getState();
+      if (savedState && savedState.zoom) {
+        document.body.setAttribute("data-zoom", savedState.zoom);
+      }
+      updateActiveButton();
 
-      // ── Message handler ──
-      window.addEventListener("message", (event) => {
-        const msg = event.data;
-        if (msg.type === "update") {
-          slides = msg.slides || [];
-          render();
-        }
+      // ── Zoom buttons ──
+      document.querySelectorAll(".zoom-btn").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          var zoom = btn.getAttribute("data-zoom");
+          document.body.setAttribute("data-zoom", zoom);
+          vscode.setState({ zoom: zoom });
+          updateActiveButton();
+        });
       });
 
-      // ── Render ──
-      function render() {
-        if (slides.length === 0) {
-          viewport.innerHTML = '<p class="empty-state">スライドが見つかりません。</p>';
-          return;
-        }
-
-        viewport.innerHTML = slides.map(function (slide) {
-          return renderSlide(slide);
-        }).join("");
-      }
-
-      function renderSlide(slide) {
-        const layoutClass = isTitleSlideLayout(slide.layout) ? "layout-title-slide" : "";
-
-        const bgStyle = slide.backgroundDataUrl
-          ? ' style="background-image: url(' + escapeAttr(slide.backgroundDataUrl) + ')"'
-          : "";
-
-        const layoutLabel = slide.layout
-          ? '<span class="slide-layout-label">' + escapeHtml(slide.layout) + "</span>"
-          : "";
-
-        const categorized = categorizeContent(slide.content);
-        const hasTitle = categorized.titleHtml.length > 0;
-
-        return '<div class="slide-frame ' + layoutClass + '">'
-          + '<div class="slide-bg"' + bgStyle + "></div>"
-          + '<div class="slide-content" data-has-title="' + hasTitle + '">'
-            + (hasTitle ? '<div class="title-area">' + categorized.titleHtml + "</div>" : "")
-            + '<div class="body-area">' + (categorized.bodyHtml || (!hasTitle ? '<p class="empty-state">(空のスライド)</p>' : "")) + "</div>"
-          + "</div>"
-          + layoutLabel
-        + "</div>";
-      }
-
-      function isTitleSlideLayout(layout) {
-        if (!layout) return false;
-        const lower = layout.toLowerCase();
-        return lower.includes("title slide") || lower === "title";
-      }
-
-      function categorizeContent(content) {
-        let titleHtml = "";
-        let bodyHtml = "";
-        let titleFound = false;
-
-        for (const el of content) {
-          if (!titleFound && el.type === "heading" && (el.level === 1 || el.level === 2)) {
-            titleFound = true;
-            titleHtml += renderElement(el);
+      function updateActiveButton() {
+        var currentZoom = document.body.getAttribute("data-zoom");
+        document.querySelectorAll(".zoom-btn").forEach(function (btn) {
+          if (btn.getAttribute("data-zoom") === currentZoom) {
+            btn.classList.add("active");
           } else {
-            bodyHtml += renderElement(el);
+            btn.classList.remove("active");
           }
-        }
-
-        return { titleHtml: titleHtml, bodyHtml: bodyHtml };
+        });
       }
-
-      function renderElement(el) {
-        switch (el.type) {
-          case "heading": {
-            const tag = "h" + Math.min(el.level, 6);
-            return "<" + tag + ">" + renderRuns(el.runs) + "</" + tag + ">";
-          }
-          case "paragraph":
-            return "<p>" + renderRuns(el.runs) + "</p>";
-          case "list":
-            return renderList(el.items);
-          case "image":
-            return renderImage(el.image);
-          default:
-            return "";
-        }
-      }
-
-      function renderList(items) {
-        if (items.length === 0) return "";
-
-        const result = [];
-        const stack = [];
-
-        for (const item of items) {
-          const tag = item.ordered ? "ol" : "ul";
-          const html = "<li>" + renderRuns(item.runs) + "</li>";
-
-          // 階層が浅くなった場合、または同一階層でリストタグが変わった場合にclose
-          while (stack.length > 0 && (
-            stack[stack.length - 1].level > item.level ||
-            (stack[stack.length - 1].level === item.level && stack[stack.length - 1].tag !== tag)
-          )) {
-            const popped = stack.pop();
-            const closedList = "<" + popped.tag + ">" + popped.items.join("") + "</" + popped.tag + ">";
-            if (stack.length > 0) {
-              const parent = stack[stack.length - 1];
-              parent.items[parent.items.length - 1] += closedList;
-            } else {
-              result.push(closedList);
-            }
-          }
-
-          if (stack.length === 0 || item.level > stack[stack.length - 1].level) {
-            stack.push({ level: item.level, tag: tag, items: [html] });
-          } else {
-            stack[stack.length - 1].items.push(html);
-          }
-        }
-
-        while (stack.length > 0) {
-          const popped = stack.pop();
-          const closedList = "<" + popped.tag + ">" + popped.items.join("") + "</" + popped.tag + ">";
-          if (stack.length > 0) {
-            const parent = stack[stack.length - 1];
-            parent.items[parent.items.length - 1] += closedList;
-          } else {
-            result.push(closedList);
-          }
-        }
-
-        return result.join("");
-      }
-
-      function renderImage(image) {
-        if (image.src && !image.src.startsWith("data:unsupported")) {
-          const widthAttr = image.width ? ' width="' + image.width + '"' : "";
-          const heightAttr = image.height ? ' height="' + image.height + '"' : "";
-          const alt = escapeAttr(image.alt || image.src);
-          return '<img class="slide-image" src="' + escapeAttr(image.src) + '" alt="' + alt + '"' + widthAttr + heightAttr + ">";
-        }
-        const label = image.alt || image.src;
-        return '<span class="image-placeholder">[Image: ' + escapeHtml(label) + "]</span>";
-      }
-
-      function renderRuns(runs) {
-        if (!runs) return "";
-        return runs.map(function (run) {
-          let html = escapeHtml(run.text);
-          if (run.code) html = "<code>" + html + "</code>";
-          if (run.bold) html = "<strong>" + html + "</strong>";
-          if (run.italic) html = "<em>" + html + "</em>";
-          if (run.strikethrough) html = "<s>" + html + "</s>";
-          if (run.link && isSafeUrl(run.link)) html = '<a href="' + escapeAttr(run.link) + '">' + html + "</a>";
-          return html;
-        }).join("");
-      }
-
-      function isSafeUrl(url) {
-        if (!url) return false;
-        var lower = url.toLowerCase().trim();
-        return lower.startsWith("http:") || lower.startsWith("https:") || lower.startsWith("mailto:") || lower.startsWith("#");
-      }
-
-      function escapeHtml(text) {
-        if (!text) return "";
-        return text
-          .replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;")
-          .replace(/"/g, "&quot;");
-      }
-
-      function escapeAttr(text) {
-        return escapeHtml(text);
-      }
-
-      // ── Notify extension that webview is ready ──
-      vscode.postMessage({ type: "ready" });
     })();
   </script>
 </body>
 </html>`;
+}
+
+/**
+ * 読み込み中の HTML シェルを構築する。
+ */
+export function buildLoadingHtml(): string {
+  return buildHtml([], "fit").replace(
+    '<p class="empty-state">スライドが見つかりません。</p>',
+    '<p class="empty-state">スライドを読み込み中...</p>',
+  );
+}
+
+/**
+ * エラー表示用の HTML を構築する。
+ */
+export function buildErrorHtml(message: string): string {
+  const escaped = message
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+  return buildHtml([], "fit").replace(
+    '<p class="empty-state">スライドが見つかりません。</p>',
+    `<p class="error-state">${escaped}</p>`,
+  );
 }

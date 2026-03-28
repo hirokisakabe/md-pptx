@@ -1,256 +1,82 @@
 import { describe, it, expect } from "vitest";
-import {
-  buildSlideRenderData,
-  resolveBackground,
-  resolveContentImages,
-} from "./slide-renderer";
-import type {
-  SlideData,
-  BackgroundExtractionResult,
-} from "../../core/types.js";
+import { buildHtml, buildLoadingHtml, buildErrorHtml } from "./slide-renderer";
 
-describe("buildSlideRenderData", () => {
-  it("背景・画像変換なしでスライドデータを変換する", () => {
-    const slides: SlideData[] = [
-      {
-        layout: "Title Slide",
-        content: [
-          { type: "heading", level: 1, runs: [{ text: "Hello" }] },
-          { type: "paragraph", runs: [{ text: "World" }] },
-        ],
-        notes: ["note1"],
-        directives: [],
-      },
-    ];
-
-    const result = buildSlideRenderData(slides);
-
-    expect(result).toHaveLength(1);
-    expect(result[0].layout).toBe("Title Slide");
-    expect(result[0].backgroundDataUrl).toBeUndefined();
-    expect(result[0].content).toHaveLength(2);
-    expect(result[0].notes).toEqual(["note1"]);
+describe("buildHtml", () => {
+  it("有効な HTML を返す", () => {
+    const html = buildHtml([]);
+    expect(html).toContain("<!DOCTYPE html>");
+    expect(html).toContain('<html lang="ja">');
+    expect(html).toContain("</html>");
   });
 
-  it("背景画像を含むスライドデータを変換する", () => {
-    const slides: SlideData[] = [
-      {
-        layout: "MyLayout",
-        content: [],
-        notes: [],
-        directives: [],
-      },
-    ];
-
-    const backgrounds: BackgroundExtractionResult = {
-      masters: [
-        {
-          masterName: "Master",
-          contentType: "image/png",
-          data: new Uint8Array(),
-          dataUrl: "data:image/png;base64,master",
-        },
-      ],
-      layouts: [
-        {
-          layoutName: "MyLayout",
-          contentType: "image/png",
-          data: new Uint8Array(),
-          dataUrl: "data:image/png;base64,layout",
-        },
-      ],
-    };
-
-    const result = buildSlideRenderData(slides, backgrounds);
-
-    expect(result[0].backgroundDataUrl).toBe("data:image/png;base64,layout");
+  it("ズームツールバーを含む", () => {
+    const html = buildHtml([]);
+    expect(html).toContain("toolbar");
+    expect(html).toContain('data-zoom="fit"');
+    expect(html).toContain('data-zoom="50"');
+    expect(html).toContain('data-zoom="75"');
+    expect(html).toContain('data-zoom="100"');
+    expect(html).toContain('data-zoom="150"');
   });
 
-  it("resolveImageSrc で画像パスを変換する", () => {
-    const slides: SlideData[] = [
-      {
-        content: [
-          { type: "image", image: { src: "img/photo.png", alt: "photo" } },
-          { type: "paragraph", runs: [{ text: "text" }] },
-        ],
-        notes: [],
-        directives: [],
-      },
-    ];
-
-    const resolveImageSrc = (src: string) => `https://webview/${src}`;
-    const result = buildSlideRenderData(slides, undefined, resolveImageSrc);
-
-    expect(result[0].content[0]).toEqual({
-      type: "image",
-      image: { src: "https://webview/img/photo.png", alt: "photo" },
-    });
-    // 非画像要素はそのまま
-    expect(result[0].content[1]).toEqual({
-      type: "paragraph",
-      runs: [{ text: "text" }],
-    });
+  it("スライド表示領域を含む", () => {
+    const html = buildHtml([]);
+    expect(html).toContain('id="container"');
+    expect(html).toContain("slides-container");
   });
 
-  it("data URL の画像は変換しない", () => {
-    const slides: SlideData[] = [
-      {
-        content: [
-          {
-            type: "image",
-            image: { src: "data:image/png;base64,abc", alt: "inline" },
-          },
-        ],
-        notes: [],
-        directives: [],
-      },
-    ];
-
-    const resolveImageSrc = (src: string) => `resolved:${src}`;
-    const result = buildSlideRenderData(slides, undefined, resolveImageSrc);
-
-    expect(result[0].content[0]).toEqual({
-      type: "image",
-      image: { src: "data:image/png;base64,abc", alt: "inline" },
-    });
+  it("SVG をスライドフレーム内に埋め込む", () => {
+    const svgs = ['<svg xmlns="http://www.w3.org/2000/svg"><rect/></svg>'];
+    const html = buildHtml(svgs);
+    expect(html).toContain("slide-frame");
+    expect(html).toContain("slide-wrapper");
+    expect(html).toContain("Slide 1");
+    expect(html).toContain("<rect/>");
   });
 
-  it("http URL の画像は変換しない", () => {
-    const slides: SlideData[] = [
-      {
-        content: [
-          {
-            type: "image",
-            image: { src: "https://example.com/img.png" },
-          },
-        ],
-        notes: [],
-        directives: [],
-      },
-    ];
+  it("複数の SVG スライドを埋め込む", () => {
+    const svgs = ["<svg>1</svg>", "<svg>2</svg>", "<svg>3</svg>"];
+    const html = buildHtml(svgs);
+    expect(html).toContain("Slide 1");
+    expect(html).toContain("Slide 2");
+    expect(html).toContain("Slide 3");
+  });
 
-    const resolveImageSrc = (src: string) => `resolved:${src}`;
-    const result = buildSlideRenderData(slides, undefined, resolveImageSrc);
+  it("空の SVG 配列の場合に空状態メッセージを表示する", () => {
+    const html = buildHtml([]);
+    expect(html).toContain("スライドが見つかりません");
+  });
 
-    expect(result[0].content[0]).toEqual({
-      type: "image",
-      image: { src: "https://example.com/img.png" },
-    });
+  it("ズーム状態の保存・復元機能を含む", () => {
+    const html = buildHtml([]);
+    expect(html).toContain("getState");
+    expect(html).toContain("setState");
+  });
+
+  it("デフォルトズームを指定できる", () => {
+    const html = buildHtml([], "100");
+    expect(html).toContain('data-zoom="100"');
   });
 });
 
-describe("resolveBackground", () => {
-  const backgrounds: BackgroundExtractionResult = {
-    masters: [
-      {
-        masterName: "Master1",
-        contentType: "image/png",
-        data: new Uint8Array(),
-        dataUrl: "data:image/png;base64,master1",
-      },
-    ],
-    layouts: [
-      {
-        layoutName: "Title Slide",
-        contentType: "image/jpeg",
-        data: new Uint8Array(),
-        dataUrl: "data:image/jpeg;base64,titleslide",
-      },
-    ],
-  };
-
-  it("レイアウト固有の背景を優先する", () => {
-    const slide: SlideData = {
-      layout: "Title Slide",
-      content: [],
-      notes: [],
-      directives: [],
-    };
-    expect(resolveBackground(slide, backgrounds)).toBe(
-      "data:image/jpeg;base64,titleslide",
-    );
-  });
-
-  it("レイアウト固有の背景がなければマスターにフォールバック", () => {
-    const slide: SlideData = {
-      layout: "Other Layout",
-      content: [],
-      notes: [],
-      directives: [],
-    };
-    expect(resolveBackground(slide, backgrounds)).toBe(
-      "data:image/png;base64,master1",
-    );
-  });
-
-  it("レイアウト未指定でもマスターにフォールバック", () => {
-    const slide: SlideData = {
-      content: [],
-      notes: [],
-      directives: [],
-    };
-    expect(resolveBackground(slide, backgrounds)).toBe(
-      "data:image/png;base64,master1",
-    );
-  });
-
-  it("backgrounds が undefined なら undefined を返す", () => {
-    const slide: SlideData = {
-      layout: "Title Slide",
-      content: [],
-      notes: [],
-      directives: [],
-    };
-    expect(resolveBackground(slide, undefined)).toBeUndefined();
-  });
-
-  it("masters も layouts も空なら undefined を返す", () => {
-    const slide: SlideData = {
-      content: [],
-      notes: [],
-      directives: [],
-    };
-    expect(
-      resolveBackground(slide, { masters: [], layouts: [] }),
-    ).toBeUndefined();
+describe("buildLoadingHtml", () => {
+  it("読み込み中メッセージを含む", () => {
+    const html = buildLoadingHtml();
+    expect(html).toContain("スライドを読み込み中...");
   });
 });
 
-describe("resolveContentImages", () => {
-  const resolver = (src: string) => `/resolved/${src}`;
+describe("buildErrorHtml", () => {
+  it("エラーメッセージを含む", () => {
+    const html = buildErrorHtml("テストエラー");
+    expect(html).toContain("テストエラー");
+    expect(html).toContain("error-state");
+  });
 
-  it("画像要素のパスを変換する", () => {
-    const result = resolveContentImages(
-      { type: "image", image: { src: "photo.png", alt: "test", width: 100 } },
-      resolver,
+  it("HTML をエスケープする", () => {
+    const html = buildErrorHtml('<script>alert("xss")</script>');
+    expect(html).toContain(
+      "&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;",
     );
-    expect(result).toEqual({
-      type: "image",
-      image: { src: "/resolved/photo.png", alt: "test", width: 100 },
-    });
-  });
-
-  it("非画像要素はそのまま返す", () => {
-    const element = {
-      type: "paragraph" as const,
-      runs: [{ text: "hello" }],
-    };
-    expect(resolveContentImages(element, resolver)).toBe(element);
-  });
-
-  it("data: URL はそのまま返す", () => {
-    const element = {
-      type: "image" as const,
-      image: { src: "data:image/png;base64,abc" },
-    };
-    expect(resolveContentImages(element, resolver)).toBe(element);
-  });
-
-  it("http URL はそのまま返す", () => {
-    const element = {
-      type: "image" as const,
-      image: { src: "http://example.com/img.png" },
-    };
-    expect(resolveContentImages(element, resolver)).toBe(element);
   });
 });

@@ -1,21 +1,25 @@
 import * as vscode from "vscode";
 import * as path from "node:path";
 import * as fs from "node:fs";
-import { parseMarkdown, extractBackgrounds } from "../../index.js";
-import type { BackgroundExtractionResult } from "../../index.js";
-import { buildSlideRenderData, buildShellHtml } from "./slide-renderer";
-import type { SlideRenderData } from "./slide-renderer";
+import {
+  parseMarkdown,
+  readTemplate,
+  mapPresentation,
+  generatePptx,
+} from "../../index.js";
+import { convertPptxToSvg } from "pptx-glimpse";
+import type { FontMapping } from "pptx-glimpse";
+import { ensureInitialized } from "../pyodide-loader";
+import { buildHtml, buildLoadingHtml, buildErrorHtml } from "./slide-renderer";
 
-/** Webview に送信するメッセージ */
-interface UpdateMessage {
-  type: "update";
-  slides: SlideRenderData[];
-}
-
-/** Webview から受信するメッセージ */
-interface WebviewMessage {
-  type: "ready";
-}
+const EXTRA_FONT_MAPPING: FontMapping = {
+  Calibri: "Noto Sans JP",
+  "Calibri Light": "Noto Sans JP",
+  "游ゴシック Light": "Noto Sans JP",
+  "Yu Gothic Light": "Noto Sans JP",
+  "ＭＳ Ｐゴシック": "Noto Sans JP",
+  "MS PGothic": "Noto Sans JP",
+};
 
 export class PreviewPanel {
   public static readonly viewType = "md-pptx.preview";
@@ -23,41 +27,33 @@ export class PreviewPanel {
   private static instance: PreviewPanel | undefined;
 
   private readonly panel: vscode.WebviewPanel;
+  private readonly extensionContext: vscode.ExtensionContext;
   private document: vscode.TextDocument;
   private disposables: vscode.Disposable[] = [];
-
-  /** 背景画像キャッシュ */
-  private cachedTemplatePath: string | undefined;
-  private cachedBackgrounds: BackgroundExtractionResult | undefined;
 
   /** 非同期 update の競合防止用シーケンス番号 */
   private updateSeq = 0;
 
+  /** debounce 用タイマー */
+  private debounceTimer: ReturnType<typeof setTimeout> | undefined;
+
   private constructor(
     panel: vscode.WebviewPanel,
+    extensionContext: vscode.ExtensionContext,
     document: vscode.TextDocument,
   ) {
     this.panel = panel;
+    this.extensionContext = extensionContext;
     this.document = document;
 
-    this.panel.webview.html = buildShellHtml();
+    this.panel.webview.html = buildLoadingHtml();
 
     this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
-
-    this.panel.webview.onDidReceiveMessage(
-      (message: WebviewMessage) => {
-        if (message.type === "ready") {
-          void this.update();
-        }
-      },
-      null,
-      this.disposables,
-    );
 
     vscode.workspace.onDidChangeTextDocument(
       (e) => {
         if (e.document.uri.toString() === this.document.uri.toString()) {
-          void this.update();
+          this.scheduleUpdate();
         }
       },
       null,
@@ -74,10 +70,12 @@ export class PreviewPanel {
       null,
       this.disposables,
     );
+
+    void this.update();
   }
 
   public static createOrShow(
-    extensionUri: vscode.Uri,
+    extensionContext: vscode.ExtensionContext,
     document: vscode.TextDocument,
   ): void {
     const column = vscode.ViewColumn.Beside;
@@ -89,93 +87,91 @@ export class PreviewPanel {
       return;
     }
 
-    const mdDir = path.dirname(document.uri.fsPath);
-
     const panel = vscode.window.createWebviewPanel(
       PreviewPanel.viewType,
       "md-pptx Preview",
       column,
       {
         enableScripts: true,
-        localResourceRoots: [
-          extensionUri,
-          vscode.Uri.file(mdDir),
-          ...(vscode.workspace.workspaceFolders?.map((f) => f.uri) ?? []),
-        ],
       },
     );
 
-    PreviewPanel.instance = new PreviewPanel(panel, document);
+    PreviewPanel.instance = new PreviewPanel(panel, extensionContext, document);
+  }
+
+  private scheduleUpdate(): void {
+    if (this.debounceTimer) {
+      clearTimeout(this.debounceTimer);
+    }
+    this.debounceTimer = setTimeout(() => {
+      this.debounceTimer = undefined;
+      void this.update();
+    }, 300);
   }
 
   private async update(): Promise<void> {
     const seq = ++this.updateSeq;
-    const mdContent = this.document.getText();
 
     try {
-      const parseResult = parseMarkdown(mdContent);
-      const backgrounds = await this.resolveBackgrounds(
-        parseResult.frontMatter.template,
-      );
-
-      // 非同期処理中に新しい update が開始された場合は古い結果を破棄
+      await ensureInitialized(this.extensionContext.globalStorageUri);
       if (seq !== this.updateSeq) return;
 
-      const webview = this.panel.webview;
+      const mdContent = this.document.getText();
       const mdDir = path.dirname(this.document.uri.fsPath);
-      const resolveImageSrc = (src: string): string => {
+
+      const parseResult = parseMarkdown(mdContent);
+
+      const templatePath = parseResult.frontMatter.template;
+      let templateData: Uint8Array | undefined;
+      if (templatePath) {
+        const resolvedTemplatePath = path.resolve(mdDir, templatePath);
+        templateData = new Uint8Array(fs.readFileSync(resolvedTemplatePath));
+      }
+
+      const templateInfo = readTemplate(templateData);
+      const mappingResults = mapPresentation(parseResult, templateInfo);
+
+      const imageResolver = (src: string): Uint8Array | undefined => {
         try {
-          const imgPath = path.resolve(mdDir, src);
-          return webview.asWebviewUri(vscode.Uri.file(imgPath)).toString();
+          const imagePath = path.resolve(mdDir, src);
+          return new Uint8Array(fs.readFileSync(imagePath));
         } catch {
-          return src;
+          return undefined;
         }
       };
 
-      const slides = buildSlideRenderData(
-        parseResult.slides,
-        backgrounds,
-        resolveImageSrc,
-      );
+      const pptxData = generatePptx(parseResult, mappingResults, {
+        templateData,
+        imageResolver,
+      });
 
-      const message: UpdateMessage = { type: "update", slides };
-      void this.panel.webview.postMessage(message);
-    } catch {
       if (seq !== this.updateSeq) return;
-      const message: UpdateMessage = { type: "update", slides: [] };
-      void this.panel.webview.postMessage(message);
-    }
-  }
 
-  private async resolveBackgrounds(
-    templateRelPath: string | undefined,
-  ): Promise<BackgroundExtractionResult | undefined> {
-    if (!templateRelPath) {
-      this.cachedTemplatePath = undefined;
-      this.cachedBackgrounds = undefined;
-      return undefined;
-    }
+      const fontDirs = [
+        path.join(this.extensionContext.extensionPath, "fonts"),
+      ];
+      const slides = await convertPptxToSvg(pptxData, {
+        fontDirs,
+        fontMapping: EXTRA_FONT_MAPPING,
+      });
+      const svgs = slides.map((s) => s.svg);
 
-    const mdDir = path.dirname(this.document.uri.fsPath);
-    const templatePath = path.resolve(mdDir, templateRelPath);
+      if (seq !== this.updateSeq) return;
 
-    if (this.cachedTemplatePath === templatePath && this.cachedBackgrounds) {
-      return this.cachedBackgrounds;
-    }
-
-    try {
-      const templateData = new Uint8Array(fs.readFileSync(templatePath));
-      const backgrounds = await extractBackgrounds(templateData);
-      this.cachedTemplatePath = templatePath;
-      this.cachedBackgrounds = backgrounds;
-      return backgrounds;
-    } catch {
-      return undefined;
+      this.panel.webview.html = buildHtml(svgs);
+    } catch (error) {
+      if (seq !== this.updateSeq) return;
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.panel.webview.html = buildErrorHtml(errorMessage);
     }
   }
 
   private dispose(): void {
     PreviewPanel.instance = undefined;
+    if (this.debounceTimer) {
+      clearTimeout(this.debounceTimer);
+    }
     this.panel.dispose();
     for (const d of this.disposables) {
       d.dispose();
