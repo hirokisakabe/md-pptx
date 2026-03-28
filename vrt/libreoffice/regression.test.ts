@@ -26,6 +26,7 @@ const VRT_CASES = [
   { name: "with-image" },
   { name: "with-formatting" },
   { name: "heading-divider" },
+  { name: "with-code-block" },
   { name: "sample" },
 ] as const;
 

@@ -12,6 +12,7 @@ import type {
   ParagraphElement,
   ListElement,
   ImageElement,
+  CodeBlockElement,
   TemplateInfo,
   ParseResult,
 } from "./types.js";
@@ -39,6 +40,12 @@ function list(items: string[]): ListElement {
 
 function image(src: string): ImageElement {
   return { type: "image", image: { src } };
+}
+
+function codeBlock(code: string, language?: string): CodeBlockElement {
+  const element: CodeBlockElement = { type: "code-block", code };
+  if (language) element.language = language;
+  return element;
 }
 
 function slide(content: ContentElement[], layout?: string): SlideData {
@@ -534,5 +541,38 @@ describe("selectDefaultLayout", () => {
     const s = slide([heading(1, "タイトル"), paragraph("本文")]);
     const layout = selectDefaultLayout(s, customTemplate);
     expect(layout.name).toBe("カスタムレイアウト");
+  });
+
+  it("見出し+コードブロック → Title and Content を選択する", () => {
+    const s = slide([heading(1, "タイトル"), codeBlock("const x = 1;", "ts")]);
+    const layout = selectDefaultLayout(s, templateInfo);
+    expect(layout.name).toBe("Title and Content");
+  });
+});
+
+describe("mapSlideToPlaceholders - コードブロック", () => {
+  it("コードブロックを body にマッピングする", () => {
+    const s = slide([
+      heading(1, "タイトル"),
+      codeBlock("const x = 1;", "typescript"),
+    ]);
+    const result = mapSlideToPlaceholders(s, TITLE_AND_CONTENT_LAYOUT);
+
+    expect(result.assignments).toHaveLength(2);
+
+    const bodyAssignment = result.assignments.find(
+      (a) => a.placeholderType === "body",
+    );
+    expect(bodyAssignment).toBeDefined();
+    expect(bodyAssignment!.content).toHaveLength(1);
+    expect(bodyAssignment!.content[0].type).toBe("code-block");
+  });
+
+  it("body プレースホルダがない場合は unmapped になる", () => {
+    const s = slide([codeBlock("print('hello')", "python")]);
+    const result = mapSlideToPlaceholders(s, BLANK_LAYOUT);
+
+    expect(result.unmappedContent).toHaveLength(1);
+    expect(result.unmappedContent[0].type).toBe("code-block");
   });
 });

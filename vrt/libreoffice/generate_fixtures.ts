@@ -72,6 +72,10 @@ async function main() {
       name: "heading-divider",
       mdPath: join(E2E_FIXTURES, "heading-divider.md"),
     },
+    {
+      name: "with-code-block",
+      mdPath: join(E2E_FIXTURES, "with-code-block.md"),
+    },
     { name: "sample", mdPath: join(SAMPLE_DIR, "sample.md") },
   ];
 

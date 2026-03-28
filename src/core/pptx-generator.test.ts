@@ -4,6 +4,7 @@ import type {
   SlideData,
   SlideMappingResult,
   ContentElement,
+  CodeBlockElement,
   HeadingElement,
   ParagraphElement,
   ListElement,
@@ -93,7 +94,10 @@ function createMockSlide(
     },
     shapes: {
       add_picture: vi.fn(),
-      add_textbox: vi.fn(),
+      add_textbox: vi.fn(() => {
+        const tf = createMockTextFrame();
+        return { text_frame: tf };
+      }),
     },
   };
 }
@@ -176,6 +180,12 @@ function list(
 
 function image(src: string, alt?: string): ImageElement {
   return { type: "image", image: { src, alt } };
+}
+
+function codeBlock(code: string, language?: string): CodeBlockElement {
+  const element: CodeBlockElement = { type: "code-block", code };
+  if (language) element.language = language;
+  return element;
 }
 
 function slideData(
@@ -623,6 +633,72 @@ describe("generatePptx", () => {
 
       const slide = mockPrs._slides[0];
       expect(slide.notes_slide.notes_text_frame.text).toBe("");
+    });
+  });
+
+  describe("コードブロックの注入", () => {
+    it("コードブロックをテキストボックスとして追加する", () => {
+      const bodyPh = createMockPlaceholder(1, "body");
+      mockPrs = createMockPresentation(["Title and Content"], () => [bodyPh]);
+      const parseResult: ParseResult = {
+        frontMatter: {},
+        slides: [slideData([codeBlock("const x = 1;", "typescript")])],
+      };
+      const mappings = [
+        mapping("Title and Content", [
+          {
+            placeholderIdx: 1,
+            placeholderType: "body",
+            content: [codeBlock("const x = 1;", "typescript")],
+          },
+        ]),
+      ];
+
+      generatePptx(parseResult, mappings);
+
+      const slide = mockPrs._slides[0];
+      expect(slide.shapes.add_textbox).toHaveBeenCalledTimes(1);
+      // テキストボックスの中身を検証
+      const txBox = slide.shapes.add_textbox.mock.results[0].value;
+      const p = txBox.text_frame.paragraphs[0];
+      expect(p.runs[0].text).toBe("const x = 1;");
+      expect(p.runs[0].font.name).toBe("Courier New");
+    });
+
+    it("複数行のコードブロックを行ごとに段落として注入する", () => {
+      const bodyPh = createMockPlaceholder(1, "body");
+      mockPrs = createMockPresentation(["Title and Content"], () => [bodyPh]);
+      const code = "line1\nline2\nline3";
+      const parseResult: ParseResult = {
+        frontMatter: {},
+        slides: [slideData([codeBlock(code)])],
+      };
+      const mappings = [
+        mapping("Title and Content", [
+          {
+            placeholderIdx: 1,
+            placeholderType: "body",
+            content: [codeBlock(code)],
+          },
+        ]),
+      ];
+
+      generatePptx(parseResult, mappings);
+
+      const slide = mockPrs._slides[0];
+      expect(slide.shapes.add_textbox).toHaveBeenCalledTimes(1);
+      const txBox = slide.shapes.add_textbox.mock.results[0].value;
+      const paragraphs = txBox.text_frame.paragraphs;
+      // line1 uses existing paragraph, line2 and line3 use add_paragraph
+      expect(txBox.text_frame.add_paragraph).toHaveBeenCalledTimes(2);
+      expect(paragraphs).toHaveLength(3);
+      expect(paragraphs[0].runs[0].text).toBe("line1");
+      expect(paragraphs[1].runs[0].text).toBe("line2");
+      expect(paragraphs[2].runs[0].text).toBe("line3");
+      // All runs should use Courier New
+      for (const p of paragraphs) {
+        expect(p.runs[0].font.name).toBe("Courier New");
+      }
     });
   });
 

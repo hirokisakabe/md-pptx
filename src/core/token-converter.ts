@@ -212,6 +212,17 @@ export function convertTokensToSlide(tokens: Token[]): SlideData {
       continue;
     }
 
+    // Fenced code blocks
+    if (token.type === "fence" || token.type === "code_block") {
+      const info = token.type === "fence" ? token.info.trim() : "";
+      const language = info ? info.split(/\s+/, 1)[0] : undefined;
+      // Remove trailing newline from code content
+      const code = token.content.replace(/\n$/, "");
+      content.push({ type: "code-block", language, code });
+      i++;
+      continue;
+    }
+
     // Paragraphs (also handles paragraphs inside list items)
     if (token.type === "paragraph_open") {
       const inlineToken = tokens[i + 1];

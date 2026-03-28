@@ -141,6 +141,21 @@ describe("E2E: PPTX生成パイプライン", () => {
     expect(slideCount).toBe(1);
   });
 
+  it("コードブロックを含むスライドを生成できる", async () => {
+    const md = readFixture("with-code-block.md");
+    const pptxData = buildPptx(md);
+
+    assertValidPptx(pptxData);
+
+    const slideCount = await countSlides(pptxData);
+    expect(slideCount).toBe(3);
+
+    const zip = await JSZip.loadAsync(pptxData);
+    const slide1 = await zip.file("ppt/slides/slide1.xml")!.async("string");
+    expect(slide1).toContain("コードブロックのテスト");
+    expect(slide1).toContain("function hello");
+  });
+
   it("headingDivider で自動分割されたスライドを生成できる", async () => {
     const md = readFixture("heading-divider.md");
     const pptxData = buildPptx(md);

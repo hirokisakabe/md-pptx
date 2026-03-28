@@ -215,6 +215,71 @@ describe("convertTokensToSlide", () => {
     });
   });
 
+  describe("code blocks", () => {
+    it("should extract fenced code block with language", () => {
+      const slide = convertTokensToSlide(
+        tokensFor("```typescript\nconst x = 1;\n```"),
+      );
+      expect(slide.content).toHaveLength(1);
+      expect(slide.content[0]).toEqual({
+        type: "code-block",
+        language: "typescript",
+        code: "const x = 1;",
+      });
+    });
+
+    it("should extract fenced code block without language", () => {
+      const slide = convertTokensToSlide(tokensFor("```\nhello world\n```"));
+      expect(slide.content).toHaveLength(1);
+      expect(slide.content[0]).toEqual({
+        type: "code-block",
+        code: "hello world",
+      });
+    });
+
+    it("should extract multi-line code block", () => {
+      const slide = convertTokensToSlide(
+        tokensFor("```js\nfunction hello() {\n  return 1;\n}\n```"),
+      );
+      expect(slide.content).toHaveLength(1);
+      expect(slide.content[0]).toEqual({
+        type: "code-block",
+        language: "js",
+        code: "function hello() {\n  return 1;\n}",
+      });
+    });
+
+    it("should handle code block with other content", () => {
+      const input = "## Title\n\n```python\nprint('hello')\n```\n\nSome text";
+      const slide = convertTokensToSlide(tokensFor(input));
+      expect(slide.content).toHaveLength(3);
+      expect(slide.content[0].type).toBe("heading");
+      expect(slide.content[1].type).toBe("code-block");
+      expect(slide.content[2].type).toBe("paragraph");
+    });
+
+    it("should extract only language name from fence info with metadata", () => {
+      const slide = convertTokensToSlide(
+        tokensFor('```ts title="example"\nconst x = 1;\n```'),
+      );
+      expect(slide.content).toHaveLength(1);
+      expect(slide.content[0]).toEqual({
+        type: "code-block",
+        language: "ts",
+        code: "const x = 1;",
+      });
+    });
+
+    it("should extract indented code block", () => {
+      const slide = convertTokensToSlide(tokensFor("    indented code"));
+      expect(slide.content).toHaveLength(1);
+      expect(slide.content[0]).toEqual({
+        type: "code-block",
+        code: "indented code",
+      });
+    });
+  });
+
   describe("directives", () => {
     it("should extract local directive from HTML comment", () => {
       const slide = convertTokensToSlide(
