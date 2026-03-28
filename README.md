@@ -1,10 +1,20 @@
 # md-pptx
 
+[![Version](https://vsmarketplacebadges.dev/version/hirokisakabe.md-pptx.svg)](https://marketplace.visualstudio.com/items?itemName=hirokisakabe.md-pptx)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 Markdown から編集可能な PowerPoint ファイルを生成する VS Code 拡張です。
+
+## 特徴
+
+- **Markdown → PPTX 変換** : Markdown でスライドを記述し、編集可能な PowerPoint ファイルとして出力
+- **リアルタイムプレビュー** : VS Code エディタ上でスライドの見た目を即座に確認
+- **テンプレート対応** : 既存の PowerPoint テンプレートを指定して、デザインやレイアウトを活用
+- **レイアウト制御** : ディレクティブでスライドごとにレイアウトを柔軟に指定
 
 ## インストール
 
-VS Code のマーケットプレイスから `md-pptx` を検索してインストールしてください。
+[Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=hirokisakabe.md-pptx) からインストールできます。
 
 ## クイックスタート
 
