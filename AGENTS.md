@@ -86,7 +86,8 @@ LibreOffice で PPTX を PNG に変換し、ベースラインスナップショ
 ### ディレクトリ構成
 
 - `docker/libreoffice-vrt/` — Docker イメージ（Ubuntu 24.04 + LibreOffice + 日本語フォント + poppler-utils）
-- `vrt/libreoffice/generate_fixtures.ts` — E2E フィクスチャ Markdown → PPTX 生成
+- `vrt/fixtures/` — VRT 用 Markdown フィクスチャ（e2e/fixtures/ とは独立）
+- `vrt/libreoffice/generate_fixtures.ts` — VRT フィクスチャ Markdown → PPTX 生成
 - `vrt/libreoffice/convert_to_png.sh` — PPTX → PDF → PNG 変換（CI 用、`actual/` に出力）
 - `vrt/libreoffice/update_snapshots.sh` — ベースラインスナップショット更新（`snapshots/` に出力）
 - `vrt/libreoffice/regression.test.ts` — pixelmatch による `actual/` vs `snapshots/` 比較
