@@ -85,8 +85,38 @@ async function buildPptx(document: vscode.TextDocument): Promise<void> {
   });
 
   const parsed = path.parse(mdPath);
-  const outputPath = path.join(parsed.dir, parsed.name + ".pptx");
+  const defaultFileName = parsed.name + ".pptx";
+
+  const config = vscode.workspace.getConfiguration("md-pptx");
+  const defaultOutputDirectory = config.get<string>("defaultOutputDirectory");
+
+  const defaultDir = defaultOutputDirectory
+    ? vscode.Uri.file(path.resolve(parsed.dir, defaultOutputDirectory))
+    : vscode.Uri.file(parsed.dir);
+
+  const saveUri = await vscode.window.showSaveDialog({
+    defaultUri: vscode.Uri.joinPath(defaultDir, defaultFileName),
+    filters: {
+      PowerPoint: ["pptx"],
+    },
+  });
+
+  if (!saveUri) {
+    return;
+  }
+
+  const outputPath = saveUri.fsPath;
   fs.writeFileSync(outputPath, pptxData);
+
+  const workspaceFolder = vscode.workspace.getWorkspaceFolder(document.uri);
+  const configTarget = workspaceFolder
+    ? vscode.ConfigurationTarget.Workspace
+    : vscode.ConfigurationTarget.Global;
+  await config.update(
+    "defaultOutputDirectory",
+    path.dirname(outputPath),
+    configTarget,
+  );
 
   vscode.window.showInformationMessage(
     `PPTX を生成しました: ${path.basename(outputPath)}`,
