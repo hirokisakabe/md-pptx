@@ -13,6 +13,7 @@ import type {
   ListElement,
   ImageElement,
   CodeBlockElement,
+  TableElement,
   TemplateInfo,
   ParseResult,
 } from "./types.js";
@@ -46,6 +47,22 @@ function codeBlock(code: string, language?: string): CodeBlockElement {
   const element: CodeBlockElement = { type: "code-block", code };
   if (language) element.language = language;
   return element;
+}
+
+function table(headers: string[], rows: string[][]): TableElement {
+  const headerRow = {
+    cells: headers.map((text) => ({
+      runs: [{ text }],
+      isHeader: true,
+    })),
+  };
+  const bodyRows = rows.map((row) => ({
+    cells: row.map((text) => ({
+      runs: [{ text }],
+      isHeader: false,
+    })),
+  }));
+  return { type: "table", rows: [headerRow, ...bodyRows] };
 }
 
 function slide(content: ContentElement[], layout?: string): SlideData {
@@ -545,6 +562,69 @@ describe("selectDefaultLayout", () => {
 
   it("見出し+コードブロック → Title and Content を選択する", () => {
     const s = slide([heading(1, "タイトル"), codeBlock("const x = 1;", "ts")]);
+    const layout = selectDefaultLayout(s, templateInfo);
+    expect(layout.name).toBe("Title and Content");
+  });
+});
+
+describe("mapSlideToPlaceholders - テーブル", () => {
+  it("テーブルを body にマッピングする", () => {
+    const s = slide([
+      heading(1, "タイトル"),
+      table(["項目", "値"], [["A", "100"]]),
+    ]);
+    const result = mapSlideToPlaceholders(s, TITLE_AND_CONTENT_LAYOUT);
+
+    expect(result.assignments).toHaveLength(2);
+
+    const bodyAssignment = result.assignments.find(
+      (a) => a.placeholderType === "body",
+    );
+    expect(bodyAssignment).toBeDefined();
+    expect(bodyAssignment!.content).toHaveLength(1);
+    expect(bodyAssignment!.content[0].type).toBe("table");
+  });
+
+  it("body プレースホルダがない場合は unmapped になる", () => {
+    const s = slide([table(["A", "B"], [["1", "2"]])]);
+    const result = mapSlideToPlaceholders(s, BLANK_LAYOUT);
+
+    expect(result.unmappedContent).toHaveLength(1);
+    expect(result.unmappedContent[0].type).toBe("table");
+  });
+});
+
+describe("selectDefaultLayout - テーブル", () => {
+  const SECTION_HEADER_LAYOUT: LayoutInfo = {
+    name: "Section Header",
+    placeholders: [
+      { idx: 0, type: "title", name: "Title 1" },
+      { idx: 1, type: "body", name: "Text Placeholder 2" },
+    ],
+  };
+
+  const TITLE_SLIDE_LAYOUT: LayoutInfo = {
+    name: "Title Slide",
+    placeholders: [
+      { idx: 0, type: "title", name: "Title 1" },
+      { idx: 1, type: "subtitle", name: "Subtitle 2" },
+    ],
+  };
+
+  const templateInfo: TemplateInfo = {
+    layouts: [
+      TITLE_SLIDE_LAYOUT,
+      TITLE_AND_CONTENT_LAYOUT,
+      SECTION_HEADER_LAYOUT,
+      BLANK_LAYOUT,
+    ],
+  };
+
+  it("見出し+テーブル → Title and Content を選択する", () => {
+    const s = slide([
+      heading(1, "タイトル"),
+      table(["項目", "値"], [["A", "100"]]),
+    ]);
     const layout = selectDefaultLayout(s, templateInfo);
     expect(layout.name).toBe("Title and Content");
   });

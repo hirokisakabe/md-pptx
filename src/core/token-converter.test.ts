@@ -325,6 +325,64 @@ describe("convertTokensToSlide", () => {
     });
   });
 
+  describe("tables", () => {
+    it("should extract a simple table", () => {
+      const input = "| A | B |\n|---|---|\n| 1 | 2 |";
+      const slide = convertTokensToSlide(tokensFor(input));
+      expect(slide.content).toHaveLength(1);
+      expect(slide.content[0]).toEqual({
+        type: "table",
+        rows: [
+          {
+            cells: [
+              { runs: [{ text: "A" }], isHeader: true },
+              { runs: [{ text: "B" }], isHeader: true },
+            ],
+          },
+          {
+            cells: [
+              { runs: [{ text: "1" }], isHeader: false },
+              { runs: [{ text: "2" }], isHeader: false },
+            ],
+          },
+        ],
+      });
+    });
+
+    it("should handle table with multiple body rows", () => {
+      const input =
+        "| 項目 | 値 |\n|------|-----|\n| A | 100 |\n| B | 200 |\n| C | 300 |";
+      const slide = convertTokensToSlide(tokensFor(input));
+      expect(slide.content).toHaveLength(1);
+      if (slide.content[0].type === "table") {
+        expect(slide.content[0].rows).toHaveLength(4); // 1 header + 3 body
+        expect(slide.content[0].rows[0].cells[0].isHeader).toBe(true);
+        expect(slide.content[0].rows[1].cells[0].isHeader).toBe(false);
+      }
+    });
+
+    it("should handle table with inline formatting in cells", () => {
+      const input = "| Header |\n|--------|\n| **bold** text |";
+      const slide = convertTokensToSlide(tokensFor(input));
+      if (slide.content[0].type === "table") {
+        const bodyCell = slide.content[0].rows[1].cells[0];
+        expect(bodyCell.runs).toEqual([
+          { text: "bold", bold: true },
+          { text: " text" },
+        ]);
+      }
+    });
+
+    it("should handle table with other content", () => {
+      const input = "## Title\n\n| A | B |\n|---|---|\n| 1 | 2 |\n\nSome text";
+      const slide = convertTokensToSlide(tokensFor(input));
+      expect(slide.content).toHaveLength(3);
+      expect(slide.content[0].type).toBe("heading");
+      expect(slide.content[1].type).toBe("table");
+      expect(slide.content[2].type).toBe("paragraph");
+    });
+  });
+
   describe("mixed content", () => {
     it("should handle heading + paragraph + list", () => {
       const input = "## Title\n\nSome text\n\n- Item 1\n- Item 2";

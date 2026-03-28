@@ -85,6 +85,25 @@ describe("E2E: 生成PPTXの内容検証", () => {
     expect(slideXml).toContain("Title 1");
   });
 
+  it("テーブルを含むMarkdownからPPTXを生成するとテーブルXMLが含まれる", async () => {
+    const md = readFixture("with-table.md");
+    const pptxData = buildPptx(md);
+
+    assertValidPptx(pptxData);
+
+    const zip = await JSZip.loadAsync(pptxData);
+    const slideCount = await countSlides(zip);
+    expect(slideCount).toBe(1);
+
+    const slideXml = await zip.file("ppt/slides/slide1.xml")!.async("string");
+    // テーブルが含まれている (a:tbl はDrawingML Table要素)
+    expect(slideXml).toContain("a:tbl");
+    // セルの内容が含まれている
+    expect(slideXml).toContain("項目");
+    expect(slideXml).toContain("100");
+    expect(slideXml).toContain("200");
+  });
+
   it("sample.mdからPPTXを生成すると全スライドXMLが生成されノート関連付けが正しい", async () => {
     const md = readFileSync(
       join(__dirname, "..", "sample", "sample.md"),
