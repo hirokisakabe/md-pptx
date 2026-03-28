@@ -1,6 +1,6 @@
 import type { FrontMatter } from "./types.js";
 
-export interface ExtractFrontMatterResult {
+interface ExtractFrontMatterResult {
   frontMatter: FrontMatter;
   body: string;
 }

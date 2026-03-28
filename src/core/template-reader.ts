@@ -2,8 +2,6 @@ import { Presentation } from "python-pptx-wasm";
 import type { PlaceholderInfo, LayoutInfo, TemplateInfo } from "./types.js";
 import { toPlaceholderType } from "./placeholder-utils.js";
 
-export { toPlaceholderType, findLayout } from "./placeholder-utils.js";
-
 export function readTemplate(data?: Uint8Array): TemplateInfo {
   const prs = data ? Presentation(data) : Presentation();
 
