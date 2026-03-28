@@ -1,5 +1,6 @@
 import { Emu, Presentation, Pt } from "python-pptx-wasm";
 import type {
+  CodeBlockElement,
   ContentElement,
   HeadingElement,
   ImageElement,
@@ -109,6 +110,10 @@ function injectText(placeholder: any, content: ContentElement[]): void {
         writeList(tf, element, isFirst);
         isFirst = false;
         break;
+      case "code-block":
+        writeCodeBlock(tf, element, isFirst);
+        isFirst = false;
+        break;
       case "image":
         // Images in text placeholders: write alt text as fallback
         writeImageFallback(tf, element, isFirst);
@@ -153,6 +158,22 @@ function writeList(tf: any, list: ListElement, isFirst: boolean) {
     const p = isFirst && i === 0 ? tf.paragraphs[0] : tf.add_paragraph();
     p.level = item.level;
     writeRuns(p, item.runs);
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function writeCodeBlock(tf: any, block: CodeBlockElement, isFirst: boolean) {
+  const lines = block.code.split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    const p = isFirst && i === 0 ? tf.paragraphs[0] : tf.add_paragraph();
+    const run = p.add_run();
+    run.text = lines[i];
+    try {
+      run.font.name = "Courier New";
+      run.font.size = Pt(10);
+    } catch {
+      // font properties may not be settable
+    }
   }
 }
 

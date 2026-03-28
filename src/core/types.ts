@@ -67,11 +67,18 @@ export interface ImageElement {
   image: ImageData;
 }
 
+export interface CodeBlockElement {
+  type: "code-block";
+  language?: string;
+  code: string;
+}
+
 export type ContentElement =
   | HeadingElement
   | ParagraphElement
   | ListElement
-  | ImageElement;
+  | ImageElement
+  | CodeBlockElement;
 
 // === Slide ===
 
