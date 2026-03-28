@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  packages: read
 
 jobs:
   ci:
@@ -43,3 +44,51 @@ jobs:
 
       - name: Build Extension
         run: npm run build:extension
+
+  libreoffice-vrt:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: ".node-version"
+          cache: "npm"
+
+      - run: npm ci
+
+      - name: Download E2E recipes
+        run: npm run test:e2e:setup
+
+      - name: Generate VRT fixtures (PPTX)
+        run: npm run vrt:generate-fixtures
+
+      - name: Pull or build Docker image
+        run: |
+          IMAGE="ghcr.io/${{ github.repository }}-vrt:latest"
+          if docker pull "$IMAGE" 2>/dev/null; then
+            echo "Pulled existing image"
+          else
+            echo "Building image locally..."
+            docker build -t "$IMAGE" docker/libreoffice-vrt
+          fi
+          echo "VRT_IMAGE=$IMAGE" >> "$GITHUB_ENV"
+
+      - name: Convert PPTX to PNG via LibreOffice
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/workspace" \
+            "$VRT_IMAGE" \
+            bash vrt/libreoffice/convert_to_png.sh
+
+      - name: Run VRT tests
+        run: npm run vrt:libreoffice
+
+      - name: Upload diff images on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vrt-libreoffice-diffs
+          path: vrt/libreoffice/diffs/
+          retention-days: 7
