@@ -127,6 +127,8 @@ function createMockPresentation(
       }),
       getItem: (i: number) => slides[i],
     },
+    slide_width: undefined as unknown,
+    slide_height: undefined as unknown,
     save: vi.fn(() => new Uint8Array([0x50, 0x4b])),
     end: vi.fn(),
     _slides: slides,
@@ -141,6 +143,7 @@ vi.mock("python-pptx-wasm", () => ({
     // the mock prs must be set before calling generatePptx
     return mockPrs;
   }),
+  Emu: vi.fn((v: number) => v),
   Inches: vi.fn((v: number) => v * 914400),
   Pt: vi.fn((v: number) => v * 12700),
 }));
@@ -208,6 +211,25 @@ describe("generatePptx", () => {
       expect(result).toBeInstanceOf(Uint8Array);
       expect(mockPrs.save).toHaveBeenCalled();
       expect(mockPrs.end).toHaveBeenCalled();
+    });
+
+    it("テンプレートなしの場合スライドサイズを16:9に設定する", () => {
+      mockPrs = createMockPresentation(["Blank"]);
+      const parseResult: ParseResult = { frontMatter: {}, slides: [] };
+      generatePptx(parseResult, []);
+
+      expect(mockPrs.slide_width).toBe(12192000);
+      expect(mockPrs.slide_height).toBe(6858000);
+    });
+
+    it("テンプレート指定時はスライドサイズを変更しない", () => {
+      mockPrs = createMockPresentation(["Blank"]);
+      const templateData = new Uint8Array([1, 2, 3]);
+      const parseResult: ParseResult = { frontMatter: {}, slides: [] };
+      generatePptx(parseResult, [], { templateData });
+
+      expect(mockPrs.slide_width).toBeUndefined();
+      expect(mockPrs.slide_height).toBeUndefined();
     });
 
     it("templateDataが渡された場合Presentationに渡す", async () => {

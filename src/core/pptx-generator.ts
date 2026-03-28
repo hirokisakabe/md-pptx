@@ -1,4 +1,4 @@
-import { Presentation, Pt } from "python-pptx-wasm";
+import { Emu, Presentation, Pt } from "python-pptx-wasm";
 import type {
   ContentElement,
   HeadingElement,
@@ -25,6 +25,12 @@ export function generatePptx(
     : Presentation();
 
   try {
+    // テンプレートなしの場合、デフォルトを 16:9 に設定
+    if (!options?.templateData) {
+      prs.slide_width = Emu(12192000); // 13.333 inches
+      prs.slide_height = Emu(6858000); // 7.5 inches
+    }
+
     if (prs.slide_layouts.length === 0) {
       throw new Error("No slide layouts found in template");
     }
