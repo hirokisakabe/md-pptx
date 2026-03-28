@@ -1,0 +1,5 @@
+{
+  "entry": ["src/extension/extension.ts"],
+  "project": ["src/**/*.ts", "vrt/**/*.ts", "e2e/**/*.ts"],
+  "ignoreBinaries": ["vsce"]
+}

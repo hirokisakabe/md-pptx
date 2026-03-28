@@ -1,13 +1,6 @@
 import type { Directive } from "./types.js";
 
-export const DIRECTIVE_KEYS = [
-  "layout",
-  "paginate",
-  "header",
-  "footer",
-] as const;
-
-export type DirectiveKey = (typeof DIRECTIVE_KEYS)[number];
+const DIRECTIVE_KEYS = ["layout", "paginate", "header", "footer"] as const;
 
 const DIRECTIVE_RE = new RegExp(
   `^\\s*(_?)(${DIRECTIVE_KEYS.join("|")})\\s*:\\s*(.+?)\\s*$`,
