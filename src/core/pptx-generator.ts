@@ -8,6 +8,7 @@ import type {
   ParagraphElement,
   ParseResult,
   SlideMappingResult,
+  TableElement,
   TextRun,
 } from "./types.js";
 
@@ -47,6 +48,7 @@ export function generatePptx(
       const slide = prs.slides.add_slide(layout);
 
       const codeBlocks: CodeBlockElement[] = [];
+      const tables: TableElement[] = [];
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let bodyPlaceholder: any = undefined;
 
@@ -57,29 +59,51 @@ export function generatePptx(
         if (assignment.placeholderType === "picture") {
           injectImage(ph, assignment.content, options?.imageResolver);
         } else {
-          // コードブロックを分離して収集
-          const nonCodeContent = assignment.content.filter((c) => {
+          // コードブロックとテーブルを分離して収集
+          const nonSpecialContent = assignment.content.filter((c) => {
             if (c.type === "code-block") {
               codeBlocks.push(c);
               return false;
             }
+            if (c.type === "table") {
+              tables.push(c);
+              return false;
+            }
             return true;
           });
-          if (nonCodeContent.length > 0) {
-            injectText(ph, nonCodeContent);
+          if (nonSpecialContent.length > 0) {
+            injectText(ph, nonSpecialContent);
           }
           if (assignment.placeholderType === "body") {
             bodyPlaceholder = ph;
-            // body に非コードブロックコンテンツがあるかどうかを記録
-            (bodyPlaceholder as Record<string, boolean>)._hasNonCodeContent =
-              nonCodeContent.length > 0;
+            // body に非コードブロック・非テーブルコンテンツがあるかどうかを記録
+            (bodyPlaceholder as Record<string, boolean>)._hasBodyTextContent =
+              nonSpecialContent.length > 0;
           }
         }
       }
 
-      // コードブロックをテキストボックスとして配置
+      // テーブルとコードブロックを body プレースホルダ基準で縦に配置
+      let shapeTopOffset: number | undefined;
+
+      if (tables.length > 0) {
+        shapeTopOffset = addTableShapes(
+          slide,
+          tables,
+          prs,
+          bodyPlaceholder,
+          shapeTopOffset,
+        );
+      }
+
       if (codeBlocks.length > 0) {
-        addCodeBlockTextBoxes(slide, codeBlocks, prs, bodyPlaceholder);
+        addCodeBlockTextBoxes(
+          slide,
+          codeBlocks,
+          prs,
+          bodyPlaceholder,
+          shapeTopOffset,
+        );
       }
 
       if (slideData?.notes && slideData.notes.length > 0) {
@@ -182,6 +206,112 @@ function writeList(tf: any, list: ListElement, isFirst: boolean) {
   }
 }
 
+function resolveShapePosition(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  prs: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  bodyPlaceholder?: any,
+  topOffset?: number,
+): { left: number; width: number; top: number } {
+  const slideWidth = Number(prs.slide_width ?? Emu(12192000));
+  const slideHeight = Number(prs.slide_height ?? Emu(6858000));
+  const margin = Number(Inches(0.5));
+
+  if (topOffset !== undefined) {
+    // 前のシェイプの後に続ける
+    const left = bodyPlaceholder ? Number(bodyPlaceholder.left) : margin;
+    const width = bodyPlaceholder
+      ? Number(bodyPlaceholder.width)
+      : slideWidth - margin * 2;
+    return { left, width, top: topOffset };
+  }
+
+  if (bodyPlaceholder) {
+    try {
+      const left = Number(bodyPlaceholder.left);
+      const width = Number(bodyPlaceholder.width);
+      const hasBodyTextContent =
+        (bodyPlaceholder as Record<string, boolean>)._hasBodyTextContent ===
+        true;
+      const top = hasBodyTextContent
+        ? Number(bodyPlaceholder.top) + Number(bodyPlaceholder.height)
+        : Number(bodyPlaceholder.top);
+      return { left, width, top };
+    } catch {
+      // fall through
+    }
+  }
+
+  return {
+    left: margin,
+    width: slideWidth - margin * 2,
+    top: Math.round(slideHeight * 0.3),
+  };
+}
+
+function addTableShapes(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  slide: any,
+  tables: TableElement[],
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  prs: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  bodyPlaceholder?: any,
+  topOffset?: number,
+): number {
+  const pos = resolveShapePosition(prs, bodyPlaceholder, topOffset);
+  const tableLeft = pos.left;
+  const tableWidth = pos.width;
+  let currentTop = pos.top;
+
+  const rowHeightEmu = Number(Inches(0.4));
+  const tableGap = Number(Pt(8));
+
+  for (const table of tables) {
+    const rowCount = table.rows.length;
+    const colCount = table.rows[0]?.cells.length ?? 0;
+    if (rowCount === 0 || colCount === 0) continue;
+
+    const tableHeight = rowHeightEmu * rowCount;
+
+    const graphicFrame = slide.shapes.add_table(
+      rowCount,
+      colCount,
+      Emu(tableLeft),
+      Emu(currentTop),
+      Emu(tableWidth),
+      Emu(tableHeight),
+    );
+
+    const tbl = graphicFrame.table;
+    tbl.first_row = true;
+
+    for (let r = 0; r < rowCount; r++) {
+      const row = table.rows[r];
+      for (let c = 0; c < row.cells.length; c++) {
+        const cellData = row.cells[c];
+        const cell = tbl.cell(r, c);
+        const tf = cell.text_frame;
+        tf.clear();
+        const p = tf.paragraphs[0];
+        writeRuns(p, cellData.runs);
+
+        if (cellData.isHeader) {
+          try {
+            p.font.bold = true;
+          } catch {
+            // font properties may not be settable
+          }
+        }
+      }
+    }
+
+    currentTop += tableHeight + tableGap;
+  }
+
+  return currentTop;
+}
+
 function addCodeBlockTextBoxes(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   slide: any,
@@ -190,40 +320,12 @@ function addCodeBlockTextBoxes(
   prs: any,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   bodyPlaceholder?: any,
+  topOffset?: number,
 ) {
-  // body プレースホルダの位置を基準に配置、なければスライドサイズから算出
-  const slideWidth = Number(prs.slide_width ?? Emu(12192000));
-  const margin = Number(Inches(0.5));
-
-  let boxLeft: number;
-  let boxWidth: number;
-  let currentTop: number;
-
-  if (bodyPlaceholder) {
-    try {
-      boxLeft = Number(bodyPlaceholder.left);
-      boxWidth = Number(bodyPlaceholder.width);
-      const hasNonCodeContent =
-        (bodyPlaceholder as Record<string, boolean>)._hasNonCodeContent ===
-        true;
-      if (hasNonCodeContent) {
-        // body に他のテキストがある場合はプレースホルダの下端から配置
-        currentTop =
-          Number(bodyPlaceholder.top) + Number(bodyPlaceholder.height);
-      } else {
-        // body にテキストがない場合はプレースホルダの先頭位置から配置
-        currentTop = Number(bodyPlaceholder.top);
-      }
-    } catch {
-      boxLeft = margin;
-      boxWidth = slideWidth - margin * 2;
-      currentTop = Math.round(Number(prs.slide_height ?? Emu(6858000)) * 0.3);
-    }
-  } else {
-    boxLeft = margin;
-    boxWidth = slideWidth - margin * 2;
-    currentTop = Math.round(Number(prs.slide_height ?? Emu(6858000)) * 0.3);
-  }
+  const pos = resolveShapePosition(prs, bodyPlaceholder, topOffset);
+  const boxLeft = pos.left;
+  const boxWidth = pos.width;
+  let currentTop = pos.top;
 
   const lineHeightEmu = Number(Pt(14));
   const blockGap = Number(Pt(8));

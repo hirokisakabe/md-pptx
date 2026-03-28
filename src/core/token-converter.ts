@@ -5,6 +5,8 @@ import type {
   TextRun,
   ListItem,
   ImageData,
+  TableRow,
+  TableCell,
 } from "./types.js";
 import { parseDirective, extractCommentContent } from "./directives.js";
 
@@ -209,6 +211,63 @@ export function convertTokensToSlide(tokens: Token[]): SlideData {
     // List item - skip open/close markers
     if (token.type === "list_item_open" || token.type === "list_item_close") {
       i++;
+      continue;
+    }
+
+    // Tables
+    if (token.type === "table_open") {
+      const tableRows: TableRow[] = [];
+      i++;
+      let inHeader = false;
+
+      while (i < tokens.length && tokens[i].type !== "table_close") {
+        const t = tokens[i];
+
+        if (t.type === "thead_open") {
+          inHeader = true;
+          i++;
+          continue;
+        }
+        if (t.type === "thead_close") {
+          inHeader = false;
+          i++;
+          continue;
+        }
+        if (t.type === "tbody_open" || t.type === "tbody_close") {
+          i++;
+          continue;
+        }
+
+        if (t.type === "tr_open") {
+          const cells: TableCell[] = [];
+          i++;
+
+          while (i < tokens.length && tokens[i].type !== "tr_close") {
+            const cellToken = tokens[i];
+            if (cellToken.type === "th_open" || cellToken.type === "td_open") {
+              const inlineToken = tokens[i + 1];
+              const runs = inlineToken?.children
+                ? convertInlineTokens(inlineToken.children)
+                : [];
+              cells.push({ runs, isHeader: inHeader });
+              i += 3; // *_open, inline, *_close
+              continue;
+            }
+            i++;
+          }
+
+          tableRows.push({ cells });
+          i++; // tr_close
+          continue;
+        }
+
+        i++;
+      }
+
+      if (tableRows.length > 0) {
+        content.push({ type: "table", rows: tableRows });
+      }
+      i++; // table_close
       continue;
     }
 

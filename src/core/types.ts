@@ -73,12 +73,27 @@ export interface CodeBlockElement {
   code: string;
 }
 
+export interface TableCell {
+  runs: TextRun[];
+  isHeader: boolean;
+}
+
+export interface TableRow {
+  cells: TableCell[];
+}
+
+export interface TableElement {
+  type: "table";
+  rows: TableRow[];
+}
+
 export type ContentElement =
   | HeadingElement
   | ParagraphElement
   | ListElement
   | ImageElement
-  | CodeBlockElement;
+  | CodeBlockElement
+  | TableElement;
 
 // === Slide ===
 

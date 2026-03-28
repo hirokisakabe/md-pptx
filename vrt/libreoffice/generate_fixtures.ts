@@ -76,6 +76,10 @@ async function main() {
       name: "with-code-block",
       mdPath: join(VRT_FIXTURES, "with-code-block.md"),
     },
+    {
+      name: "with-table",
+      mdPath: join(VRT_FIXTURES, "with-table.md"),
+    },
     { name: "sample", mdPath: join(SAMPLE_DIR, "sample.md") },
   ];
 

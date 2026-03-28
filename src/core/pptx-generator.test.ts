@@ -9,6 +9,7 @@ import type {
   ParagraphElement,
   ListElement,
   ImageElement,
+  TableElement,
 } from "./types.js";
 
 // === Mock Setup ===
@@ -80,6 +81,24 @@ function createMockPlaceholder(idx: number, type: string) {
   };
 }
 
+function createMockTable(rows: number, cols: number) {
+  const cells: ReturnType<typeof createMockTextFrame>[][] = [];
+  for (let r = 0; r < rows; r++) {
+    const row: ReturnType<typeof createMockTextFrame>[] = [];
+    for (let c = 0; c < cols; c++) {
+      row.push(createMockTextFrame());
+    }
+    cells.push(row);
+  }
+  return {
+    first_row: false,
+    cell: vi.fn((r: number, c: number) => ({
+      text_frame: cells[r][c],
+    })),
+    _cells: cells,
+  };
+}
+
 function createMockSlide(
   placeholders: ReturnType<typeof createMockPlaceholder>[],
 ) {
@@ -97,6 +116,10 @@ function createMockSlide(
       add_textbox: vi.fn(() => {
         const tf = createMockTextFrame();
         return { text_frame: tf };
+      }),
+      add_table: vi.fn((_rows: number, _cols: number) => {
+        const tbl = createMockTable(_rows, _cols);
+        return { table: tbl };
       }),
     },
   };
@@ -186,6 +209,22 @@ function codeBlock(code: string, language?: string): CodeBlockElement {
   const element: CodeBlockElement = { type: "code-block", code };
   if (language) element.language = language;
   return element;
+}
+
+function table(headers: string[], bodyRows: string[][]): TableElement {
+  const headerRow = {
+    cells: headers.map((text) => ({
+      runs: [{ text }],
+      isHeader: true,
+    })),
+  };
+  const dataRows = bodyRows.map((row) => ({
+    cells: row.map((text) => ({
+      runs: [{ text }],
+      isHeader: false,
+    })),
+  }));
+  return { type: "table", rows: [headerRow, ...dataRows] };
 }
 
 function slideData(
@@ -699,6 +738,85 @@ describe("generatePptx", () => {
       for (const p of paragraphs) {
         expect(p.runs[0].font.name).toBe("Courier New");
       }
+    });
+  });
+
+  describe("テーブルの注入", () => {
+    it("テーブルをシェイプとして追加する", () => {
+      const bodyPh = createMockPlaceholder(1, "body");
+      mockPrs = createMockPresentation(["Title and Content"], () => [bodyPh]);
+      const tbl = table(["項目", "値"], [["A", "100"]]);
+      const parseResult: ParseResult = {
+        frontMatter: {},
+        slides: [slideData([tbl])],
+      };
+      const mappings = [
+        mapping("Title and Content", [
+          {
+            placeholderIdx: 1,
+            placeholderType: "body",
+            content: [tbl],
+          },
+        ]),
+      ];
+
+      generatePptx(parseResult, mappings);
+
+      const slide = mockPrs._slides[0];
+      expect(slide.shapes.add_table).toHaveBeenCalledTimes(1);
+      // 2 rows (1 header + 1 body), 2 columns
+      expect(slide.shapes.add_table).toHaveBeenCalledWith(
+        2,
+        2,
+        expect.any(Number),
+        expect.any(Number),
+        expect.any(Number),
+        expect.any(Number),
+      );
+    });
+
+    it("テーブルセルにテキストを注入する", () => {
+      const bodyPh = createMockPlaceholder(1, "body");
+      mockPrs = createMockPresentation(["Title and Content"], () => [bodyPh]);
+      const tbl = table(["H1", "H2"], [["C1", "C2"]]);
+      const parseResult: ParseResult = {
+        frontMatter: {},
+        slides: [slideData([tbl])],
+      };
+      const mappings = [
+        mapping("Title and Content", [
+          {
+            placeholderIdx: 1,
+            placeholderType: "body",
+            content: [tbl],
+          },
+        ]),
+      ];
+
+      generatePptx(parseResult, mappings);
+
+      const slide = mockPrs._slides[0];
+      const graphicFrame = slide.shapes.add_table.mock.results[0].value;
+      const mockTable = graphicFrame.table;
+
+      // first_row should be set to true
+      expect(mockTable.first_row).toBe(true);
+
+      // Verify cell() was called for each cell
+      expect(mockTable.cell).toHaveBeenCalledWith(0, 0);
+      expect(mockTable.cell).toHaveBeenCalledWith(0, 1);
+      expect(mockTable.cell).toHaveBeenCalledWith(1, 0);
+      expect(mockTable.cell).toHaveBeenCalledWith(1, 1);
+
+      // Verify header cell content
+      const headerCell = mockTable.cell.mock.results[0].value;
+      expect(headerCell.text_frame.paragraphs[0].runs[0].text).toBe("H1");
+      expect(headerCell.text_frame.paragraphs[0].font.bold).toBe(true);
+
+      // Verify body cell content
+      const bodyCell = mockTable.cell.mock.results[2].value;
+      expect(bodyCell.text_frame.paragraphs[0].runs[0].text).toBe("C1");
+      expect(bodyCell.text_frame.paragraphs[0].font.bold).toBeUndefined();
     });
   });
 
