@@ -1,5 +1,5 @@
 /**
- * E2E フィクスチャの Markdown から PPTX を生成し、VRT 用フィクスチャとして保存する。
+ * VRT フィクスチャの Markdown から PPTX を生成し、LibreOffice VRT 用として保存する。
  *
  * Usage:
  *   npx tsx vrt/libreoffice/generate_fixtures.ts
@@ -15,7 +15,7 @@ import { mapPresentation } from "../../src/core/placeholder-mapper.js";
 import { generatePptx } from "../../src/core/pptx-generator.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const E2E_FIXTURES = join(__dirname, "..", "..", "e2e", "fixtures");
+const VRT_FIXTURES = join(__dirname, "..", "fixtures");
 const SAMPLE_DIR = join(__dirname, "..", "..", "sample");
 const RECIPES = join(__dirname, "..", "..", "e2e", "assets", "recipes");
 const OUTPUT_DIR = join(__dirname, "fixtures");
@@ -46,7 +46,7 @@ async function main() {
 
   mkdirSync(OUTPUT_DIR, { recursive: true });
 
-  const testImagePath = join(E2E_FIXTURES, "test-image.png");
+  const testImagePath = join(VRT_FIXTURES, "test-image.png");
   const testImageData = existsSync(testImagePath)
     ? new Uint8Array(readFileSync(testImagePath))
     : undefined;
@@ -57,24 +57,24 @@ async function main() {
   };
 
   const fixtures: FixtureEntry[] = [
-    { name: "basic", mdPath: join(E2E_FIXTURES, "basic.md") },
-    { name: "multi-slide", mdPath: join(E2E_FIXTURES, "multi-slide.md") },
+    { name: "basic", mdPath: join(VRT_FIXTURES, "basic.md") },
+    { name: "multi-slide", mdPath: join(VRT_FIXTURES, "multi-slide.md") },
     {
       name: "with-image",
-      mdPath: join(E2E_FIXTURES, "with-image.md"),
+      mdPath: join(VRT_FIXTURES, "with-image.md"),
       imageResolver,
     },
     {
       name: "with-formatting",
-      mdPath: join(E2E_FIXTURES, "with-formatting.md"),
+      mdPath: join(VRT_FIXTURES, "with-formatting.md"),
     },
     {
       name: "heading-divider",
-      mdPath: join(E2E_FIXTURES, "heading-divider.md"),
+      mdPath: join(VRT_FIXTURES, "heading-divider.md"),
     },
     {
       name: "with-code-block",
-      mdPath: join(E2E_FIXTURES, "with-code-block.md"),
+      mdPath: join(VRT_FIXTURES, "with-code-block.md"),
     },
     { name: "sample", mdPath: join(SAMPLE_DIR, "sample.md") },
   ];
