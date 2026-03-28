@@ -1,8 +1,10 @@
 #!/bin/bash
 set -euo pipefail
 
-# LibreOffice VRT 参照画像を生成するスクリプト。
+# LibreOffice VRT ベースラインスナップショットを生成するスクリプト。
 # Docker コンテナ内で実行されることを想定。
+#
+# フロー: PPTX → PDF (LibreOffice) → PNG per page (pdftoppm) → リサイズ (Pillow)
 #
 # Usage:
 #   bash vrt/libreoffice/update_snapshots.sh
@@ -20,37 +22,43 @@ for pptx_file in "$FIXTURE_DIR"/*.pptx; do
     [ -f "$pptx_file" ] || continue
     found=1
 
-    basename=$(basename "$pptx_file" .pptx)
+    name=$(basename "$pptx_file" .pptx)
 
     echo "Rendering: $pptx_file"
 
-    # LibreOffice headless で PNG に変換
-    libreoffice --headless --convert-to png \
+    # Step 1: PPTX → PDF
+    libreoffice --headless --convert-to pdf \
         --outdir "$TEMP_DIR" "$pptx_file" 2>/dev/null
 
-    # 出力ファイルを探す（複数スライドの場合、複数ファイルが生成される可能性がある）
+    pdf_file="$TEMP_DIR/${name}.pdf"
+    if [ ! -f "$pdf_file" ]; then
+        echo "  WARNING: No PDF output for $pptx_file"
+        continue
+    fi
+
+    # Step 2: PDF → PNG per page (pdftoppm)
+    pdftoppm -png -r 150 "$pdf_file" "$TEMP_DIR/${name}-page"
+
+    # Step 3: 各ページ PNG をリサイズして出力
     slide_num=1
-    for png_file in "$TEMP_DIR/${basename}"*.png; do
+    for png_file in "$TEMP_DIR/${name}-page"*.png; do
         [ -f "$png_file" ] || continue
 
-        # Pillow で 960px 幅にリサイズして保存
         python3 -c "
 from PIL import Image
-import sys
 
 img = Image.open('$png_file')
 ratio = $TARGET_WIDTH / img.width
 new_height = int(img.height * ratio)
 img = img.resize(($TARGET_WIDTH, new_height), Image.LANCZOS)
-output_path = '$OUTPUT_DIR/${basename}-slide${slide_num}.png'
+output_path = '$OUTPUT_DIR/${name}-slide${slide_num}.png'
 img.save(output_path)
 print(f'  Saved: {output_path} ({$TARGET_WIDTH}x{new_height})')
 "
         slide_num=$((slide_num + 1))
     done
 
-    # 一時ファイルをクリーンアップ
-    rm -f "$TEMP_DIR/${basename}"*.png
+    rm -f "$TEMP_DIR/${name}"* "$TEMP_DIR/${name}-page"*.png
 done
 
 if [ "$found" -eq 0 ]; then

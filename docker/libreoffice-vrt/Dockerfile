@@ -14,6 +14,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     fonts-crosextra-carlito \
     fonts-crosextra-caladea \
     fonts-croscore \
+    poppler-utils \
     ca-certificates curl \
     python3 \
     python3-pip \
