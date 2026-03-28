@@ -41,6 +41,16 @@
         "title": "md-pptx: Preview"
       }
     ],
+    "configuration": {
+      "title": "md-pptx",
+      "properties": {
+        "md-pptx.defaultOutputDirectory": {
+          "type": "string",
+          "default": "",
+          "description": "PPTX ファイルのデフォルト出力先ディレクトリ。空の場合は Markdown ファイルと同じディレクトリが使用されます。"
+        }
+      }
+    },
     "menus": {
       "commandPalette": [
         {
