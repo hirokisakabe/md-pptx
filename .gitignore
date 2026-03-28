@@ -1,3 +1,6 @@
 node_modules/
 dist/
 *.tsbuildinfo
+vrt/libreoffice/fixtures/
+vrt/libreoffice/actual/
+vrt/libreoffice/diffs/
