@@ -94,7 +94,10 @@ function createMockSlide(
     },
     shapes: {
       add_picture: vi.fn(),
-      add_textbox: vi.fn(),
+      add_textbox: vi.fn(() => {
+        const tf = createMockTextFrame();
+        return { text_frame: tf };
+      }),
     },
   };
 }
@@ -634,7 +637,7 @@ describe("generatePptx", () => {
   });
 
   describe("コードブロックの注入", () => {
-    it("コードブロックを等幅フォントで注入する", () => {
+    it("コードブロックをテキストボックスとして追加する", () => {
       const bodyPh = createMockPlaceholder(1, "body");
       mockPrs = createMockPresentation(["Title and Content"], () => [bodyPh]);
       const parseResult: ParseResult = {
@@ -653,8 +656,11 @@ describe("generatePptx", () => {
 
       generatePptx(parseResult, mappings);
 
-      expect(bodyPh.text_frame.clear).toHaveBeenCalled();
-      const p = bodyPh.text_frame.paragraphs[0];
+      const slide = mockPrs._slides[0];
+      expect(slide.shapes.add_textbox).toHaveBeenCalledTimes(1);
+      // テキストボックスの中身を検証
+      const txBox = slide.shapes.add_textbox.mock.results[0].value;
+      const p = txBox.text_frame.paragraphs[0];
       expect(p.runs[0].text).toBe("const x = 1;");
       expect(p.runs[0].font.name).toBe("Courier New");
     });
@@ -679,9 +685,12 @@ describe("generatePptx", () => {
 
       generatePptx(parseResult, mappings);
 
+      const slide = mockPrs._slides[0];
+      expect(slide.shapes.add_textbox).toHaveBeenCalledTimes(1);
+      const txBox = slide.shapes.add_textbox.mock.results[0].value;
+      const paragraphs = txBox.text_frame.paragraphs;
       // line1 uses existing paragraph, line2 and line3 use add_paragraph
-      expect(bodyPh.text_frame.add_paragraph).toHaveBeenCalledTimes(2);
-      const paragraphs = bodyPh.text_frame.paragraphs;
+      expect(txBox.text_frame.add_paragraph).toHaveBeenCalledTimes(2);
       expect(paragraphs).toHaveLength(3);
       expect(paragraphs[0].runs[0].text).toBe("line1");
       expect(paragraphs[1].runs[0].text).toBe("line2");

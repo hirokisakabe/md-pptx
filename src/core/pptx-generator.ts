@@ -1,4 +1,4 @@
-import { Emu, Presentation, Pt } from "python-pptx-wasm";
+import { Emu, Inches, Presentation, Pt } from "python-pptx-wasm";
 import type {
   CodeBlockElement,
   ContentElement,
@@ -46,6 +46,10 @@ export function generatePptx(
 
       const slide = prs.slides.add_slide(layout);
 
+      const codeBlocks: CodeBlockElement[] = [];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let bodyPlaceholder: any = undefined;
+
       for (const assignment of mapping.assignments) {
         const ph = findPlaceholderByIdx(slide, assignment.placeholderIdx);
         if (!ph) continue;
@@ -53,8 +57,29 @@ export function generatePptx(
         if (assignment.placeholderType === "picture") {
           injectImage(ph, assignment.content, options?.imageResolver);
         } else {
-          injectText(ph, assignment.content);
+          // コードブロックを分離して収集
+          const nonCodeContent = assignment.content.filter((c) => {
+            if (c.type === "code-block") {
+              codeBlocks.push(c);
+              return false;
+            }
+            return true;
+          });
+          if (nonCodeContent.length > 0) {
+            injectText(ph, nonCodeContent);
+          }
+          if (assignment.placeholderType === "body") {
+            bodyPlaceholder = ph;
+            // body に非コードブロックコンテンツがあるかどうかを記録
+            (bodyPlaceholder as Record<string, boolean>)._hasNonCodeContent =
+              nonCodeContent.length > 0;
+          }
         }
+      }
+
+      // コードブロックをテキストボックスとして配置
+      if (codeBlocks.length > 0) {
+        addCodeBlockTextBoxes(slide, codeBlocks, prs, bodyPlaceholder);
       }
 
       if (slideData?.notes && slideData.notes.length > 0) {
@@ -110,10 +135,6 @@ function injectText(placeholder: any, content: ContentElement[]): void {
         writeList(tf, element, isFirst);
         isFirst = false;
         break;
-      case "code-block":
-        writeCodeBlock(tf, element, isFirst);
-        isFirst = false;
-        break;
       case "image":
         // Images in text placeholders: write alt text as fallback
         writeImageFallback(tf, element, isFirst);
@@ -161,19 +182,78 @@ function writeList(tf: any, list: ListElement, isFirst: boolean) {
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function writeCodeBlock(tf: any, block: CodeBlockElement, isFirst: boolean) {
-  const lines = block.code.split("\n");
-  for (let i = 0; i < lines.length; i++) {
-    const p = isFirst && i === 0 ? tf.paragraphs[0] : tf.add_paragraph();
-    const run = p.add_run();
-    run.text = lines[i];
+function addCodeBlockTextBoxes(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  slide: any,
+  blocks: CodeBlockElement[],
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  prs: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  bodyPlaceholder?: any,
+) {
+  // body プレースホルダの位置を基準に配置、なければスライドサイズから算出
+  const slideWidth = Number(prs.slide_width ?? Emu(12192000));
+  const margin = Number(Inches(0.5));
+
+  let boxLeft: number;
+  let boxWidth: number;
+  let currentTop: number;
+
+  if (bodyPlaceholder) {
     try {
-      run.font.name = "Courier New";
-      run.font.size = Pt(10);
+      boxLeft = Number(bodyPlaceholder.left);
+      boxWidth = Number(bodyPlaceholder.width);
+      const hasNonCodeContent =
+        (bodyPlaceholder as Record<string, boolean>)._hasNonCodeContent ===
+        true;
+      if (hasNonCodeContent) {
+        // body に他のテキストがある場合はプレースホルダの下端から配置
+        currentTop =
+          Number(bodyPlaceholder.top) + Number(bodyPlaceholder.height);
+      } else {
+        // body にテキストがない場合はプレースホルダの先頭位置から配置
+        currentTop = Number(bodyPlaceholder.top);
+      }
     } catch {
-      // font properties may not be settable
+      boxLeft = margin;
+      boxWidth = slideWidth - margin * 2;
+      currentTop = Math.round(Number(prs.slide_height ?? Emu(6858000)) * 0.3);
     }
+  } else {
+    boxLeft = margin;
+    boxWidth = slideWidth - margin * 2;
+    currentTop = Math.round(Number(prs.slide_height ?? Emu(6858000)) * 0.3);
+  }
+
+  const lineHeightEmu = Number(Pt(14));
+  const blockGap = Number(Pt(8));
+
+  for (const block of blocks) {
+    const lines = block.code.split("\n");
+    const boxHeight = lineHeightEmu * (lines.length + 1);
+
+    const txBox = slide.shapes.add_textbox(
+      Emu(boxLeft),
+      Emu(currentTop),
+      Emu(boxWidth),
+      Emu(boxHeight),
+    );
+    const tf = txBox.text_frame;
+    tf.word_wrap = true;
+
+    for (let i = 0; i < lines.length; i++) {
+      const p = i === 0 ? tf.paragraphs[0] : tf.add_paragraph();
+      const run = p.add_run();
+      run.text = lines[i];
+      try {
+        run.font.name = "Courier New";
+        run.font.size = Pt(10);
+      } catch {
+        // font properties may not be settable
+      }
+    }
+
+    currentTop += boxHeight + blockGap;
   }
 }
 
