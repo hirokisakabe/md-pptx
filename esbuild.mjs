@@ -7,7 +7,7 @@ const buildOptions = {
   entryPoints: ["src/extension/extension.ts"],
   bundle: true,
   outfile: "dist/extension.js",
-  external: ["vscode", "pyodide"],
+  external: ["vscode", "pyodide", "pptx-glimpse"],
   format: "esm",
   platform: "node",
   target: "node22",

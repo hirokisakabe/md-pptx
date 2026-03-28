@@ -15,7 +15,7 @@ export function registerPreviewCommand(context: vscode.ExtensionContext): void {
       return;
     }
 
-    PreviewPanel.createOrShow(context.extensionUri, document);
+    PreviewPanel.createOrShow(context, document);
   });
 
   context.subscriptions.push(disposable);
