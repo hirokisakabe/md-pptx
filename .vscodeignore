@@ -10,9 +10,11 @@ node_modules/**
 !node_modules/python-pptx-wasm/**
 !node_modules/pptx-glimpse/**
 !node_modules/@resvg/**
+!node_modules/fast-xml-builder/**
 !node_modules/fast-xml-parser/**
 !node_modules/fflate/**
 !node_modules/opentype.js/**
+!node_modules/path-expression-matcher/**
 !node_modules/strnum/**
 .eslintrc*
 eslint.config.*
