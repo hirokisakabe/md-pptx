@@ -1,5 +1,11 @@
 # md-pptx
 
+## 0.5.1
+
+### Patch Changes
+
+- 5555182: fix: .vscodeignore に fast-xml-builder と path-expression-matcher を追加
+
 ## 0.5.0
 
 ### Minor Changes
