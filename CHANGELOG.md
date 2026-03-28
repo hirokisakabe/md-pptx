@@ -1,5 +1,12 @@
 # md-pptx
 
+## 0.5.0
+
+### Minor Changes
+
+- f67a2c0: Markdown のコードブロック（fenced code block）を PPTX 上で等幅フォント表示する機能を追加
+- e451a2b: プレビューを pptx-glimpse ベースの SVG レンダリングに変更
+
 ## 0.4.0
 
 ### Minor Changes
