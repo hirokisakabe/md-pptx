@@ -39,7 +39,11 @@
       },
       {
         "command": "md-pptx.preview",
-        "title": "md-pptx: Preview"
+        "title": "md-pptx: Preview",
+        "icon": {
+          "light": "images/icon.png",
+          "dark": "images/icon.png"
+        }
       }
     ],
     "configuration": {
@@ -61,6 +65,13 @@
         {
           "command": "md-pptx.preview",
           "when": "editorLangId == markdown"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "md-pptx.preview",
+          "when": "editorLangId == markdown",
+          "group": "navigation"
         }
       ]
     }
