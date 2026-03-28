@@ -1,7 +1,6 @@
 # md-pptx
 
 [![Version](https://vsmarketplacebadges.dev/version/hirokisakabe.md-pptx.svg)](https://marketplace.visualstudio.com/items?itemName=hirokisakabe.md-pptx)
-[![Installs](https://vsmarketplacebadges.dev/installs-short/hirokisakabe.md-pptx.svg)](https://marketplace.visualstudio.com/items?itemName=hirokisakabe.md-pptx)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 Markdown から編集可能な PowerPoint ファイルを生成する VS Code 拡張です。
