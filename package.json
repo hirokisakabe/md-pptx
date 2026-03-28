@@ -23,6 +23,7 @@
   "engines": {
     "vscode": "^1.100.0"
   },
+  "icon": "images/icon.png",
   "categories": [
     "Programming Languages",
     "Formatters"
