@@ -1,5 +1,11 @@
 # md-pptx
 
+## 0.5.2
+
+### Patch Changes
+
+- b481f55: pptx-glimpse を esbuild の external から外してバンドルに含める
+
 ## 0.5.1
 
 ### Patch Changes
