@@ -1,5 +1,12 @@
 # md-pptx
 
+## 0.4.0
+
+### Minor Changes
+
+- 43460f9: テンプレートなし時のデフォルトスライドサイズを 16:9 に変更
+- 7b3f67e: VS Code 拡張: Build PPTX コマンドで出力先ディレクトリを選択可能にした
+
 ## 0.3.0
 
 ### Minor Changes
