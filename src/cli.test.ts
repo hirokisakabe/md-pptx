@@ -93,7 +93,7 @@ describe("CLI", () => {
       program.parse(["node", "md-pptx", "inspect", templatePath]);
 
       expect(readTemplate).toHaveBeenCalledWith(expect.any(Uint8Array));
-      const output = consoleSpy.mock.calls.map((c) => c[0]).join("\n");
+      const output = consoleSpy.mock.calls.map((c) => String(c[0])).join("\n");
       expect(output).toContain("レイアウト数: 2");
 
       consoleSpy.mockRestore();
@@ -197,7 +197,7 @@ describe("CLI", () => {
 
       expect(readTemplate).toHaveBeenCalledWith(expect.any(Uint8Array));
 
-      const output = consoleSpy.mock.calls.map((c) => c[0]).join("\n");
+      const output = consoleSpy.mock.calls.map((c) => String(c[0])).join("\n");
       expect(output).toContain("レイアウト数: 2");
       expect(output).toContain("[Title Slide]");
       expect(output).toContain("idx: 0, type: title, name: Title 1");

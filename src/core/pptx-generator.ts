@@ -91,7 +91,7 @@ export function generatePptx(
       }
     }
 
-    return prs.save() as Uint8Array;
+    return prs.save();
   } finally {
     prs.end();
   }
