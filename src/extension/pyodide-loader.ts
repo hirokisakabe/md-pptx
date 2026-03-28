@@ -136,7 +136,7 @@ function extractTarGz(buffer: Buffer, destDir: string): Promise<void> {
         extractTar(tarData, destDir);
         resolve();
       } catch (e) {
-        reject(e);
+        reject(e instanceof Error ? e : new Error(String(e)));
       }
     });
   });
