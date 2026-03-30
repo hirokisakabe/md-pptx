@@ -128,14 +128,30 @@ function createMockSlide(
   };
 }
 
+function createMockSldIdLst(count: number) {
+  const sldIds: { id: number; rId: string }[] = [];
+  for (let i = 0; i < count; i++) {
+    sldIds.push({ id: 256 + i, rId: `rId${i + 2}` });
+  }
+  return {
+    sldId_lst: sldIds,
+    remove: vi.fn((sldId: { id: number; rId: string }) => {
+      const idx = sldIds.indexOf(sldId);
+      if (idx !== -1) sldIds.splice(idx, 1);
+    }),
+  };
+}
+
 function createMockPresentation(
   layoutNames: string[],
   slidePlaceholderCreator?: (
     layoutName: string,
   ) => ReturnType<typeof createMockPlaceholder>[],
+  existingSlideCount = 0,
 ) {
   const slides: ReturnType<typeof createMockSlide>[] = [];
   const layouts = layoutNames.map((name) => ({ name }));
+  const sldIdLst = createMockSldIdLst(existingSlideCount);
 
   return {
     slide_layouts: {
@@ -146,7 +162,8 @@ function createMockPresentation(
       ),
     },
     slides: {
-      length: 0,
+      length: existingSlideCount,
+      _element: sldIdLst,
       add_slide: vi.fn((layout: { name: string }) => {
         const phs = slidePlaceholderCreator
           ? slidePlaceholderCreator(layout.name)
@@ -162,6 +179,7 @@ function createMockPresentation(
     save: vi.fn(() => new Uint8Array([0x50, 0x4b])),
     end: vi.fn(),
     _slides: slides,
+    _sldIdLst: sldIdLst,
   };
 }
 
@@ -282,6 +300,24 @@ describe("generatePptx", () => {
 
       expect(mockPrs.slide_width).toBeUndefined();
       expect(mockPrs.slide_height).toBeUndefined();
+    });
+
+    it("テンプレート指定時に既存スライドを削除する", () => {
+      mockPrs = createMockPresentation(["Blank"], undefined, 2);
+      const templateData = new Uint8Array([1, 2, 3]);
+      const parseResult: ParseResult = { frontMatter: {}, slides: [] };
+      generatePptx(parseResult, [], { templateData });
+
+      expect(mockPrs._sldIdLst.remove).toHaveBeenCalledTimes(2);
+      expect(mockPrs._sldIdLst.sldId_lst).toHaveLength(0);
+    });
+
+    it("テンプレートなしの場合は既存スライド削除を行わない", () => {
+      mockPrs = createMockPresentation(["Blank"]);
+      const parseResult: ParseResult = { frontMatter: {}, slides: [] };
+      generatePptx(parseResult, []);
+
+      expect(mockPrs._sldIdLst.remove).not.toHaveBeenCalled();
     });
 
     it("templateDataが渡された場合Presentationに渡す", async () => {
