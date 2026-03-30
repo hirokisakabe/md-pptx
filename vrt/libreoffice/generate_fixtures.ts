@@ -20,6 +20,10 @@ import { extractFrontMatter } from "../../src/core/front-matter.js";
 import { readTemplate } from "../../src/core/template-reader.js";
 import { mapPresentation } from "../../src/core/placeholder-mapper.js";
 import { generatePptx } from "../../src/core/pptx-generator.js";
+import {
+  createOrderedListHelper,
+  type PyodideLike,
+} from "../../src/core/ordered-list-xml.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const VRT_FIXTURES = join(__dirname, "..", "fixtures");
@@ -70,6 +74,7 @@ function buildPptx(
   options?: {
     imageResolver?: (src: string) => Uint8Array | undefined;
     templateData?: Uint8Array;
+    orderedListHelper?: (pPrPackedId: string) => void;
   },
 ): Uint8Array {
   const parseResult = parseMarkdown(mdContent);
@@ -78,6 +83,7 @@ function buildPptx(
   return generatePptx(parseResult, mappingResults, {
     templateData: options?.templateData,
     imageResolver: options?.imageResolver,
+    orderedListHelper: options?.orderedListHelper,
   });
 }
 
@@ -119,6 +125,9 @@ async function main() {
   const lockFileURL = join(RECIPES, "pyodide-lock.json");
   const pyodide = await loadPyodide({ lockFileURL });
   await init(pyodide);
+  const orderedListHelper = createOrderedListHelper(
+    pyodide as unknown as PyodideLike,
+  );
 
   mkdirSync(OUTPUT_DIR, { recursive: true });
 
@@ -138,6 +147,7 @@ async function main() {
     const pptxData = buildPptx(fixture.mdContent, {
       imageResolver: fixture.imageResolver,
       templateData: fixture.templateData,
+      orderedListHelper,
     });
     const outPath = join(OUTPUT_DIR, `${fixture.name}.pptx`);
     writeFileSync(outPath, pptxData);

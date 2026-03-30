@@ -7,7 +7,7 @@ import {
   mapPresentation,
   generatePptx,
 } from "../../index.js";
-import { ensureInitialized } from "../pyodide-loader";
+import { ensureInitialized, getOrderedListHelper } from "../pyodide-loader";
 
 export function registerBuildCommand(context: vscode.ExtensionContext): void {
   const disposable = vscode.commands.registerCommand(
@@ -82,6 +82,7 @@ async function buildPptx(document: vscode.TextDocument): Promise<void> {
   const pptxData = generatePptx(parseResult, mappingResults, {
     templateData,
     imageResolver,
+    orderedListHelper: getOrderedListHelper(),
   });
 
   const parsed = path.parse(mdPath);

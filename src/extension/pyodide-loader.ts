@@ -4,11 +4,22 @@ import * as path from "node:path";
 import * as https from "node:https";
 import * as zlib from "node:zlib";
 import { init } from "python-pptx-wasm";
+import {
+  createOrderedListHelper,
+  type PyodideLike,
+} from "../core/ordered-list-xml.js";
 
 const RELEASE_URL =
   "https://github.com/yikenman/python-pptx-recipe/releases/download/0.29-20260116";
 
 let initPromise: Promise<void> | undefined;
+let _orderedListHelper: ((pPrPackedId: string) => void) | undefined;
+
+export function getOrderedListHelper():
+  | ((pPrPackedId: string) => void)
+  | undefined {
+  return _orderedListHelper;
+}
 
 export function ensureInitialized(globalStorageUri: vscode.Uri): Promise<void> {
   if (!initPromise) {
@@ -28,6 +39,9 @@ async function initialize(globalStorageUri: vscode.Uri): Promise<void> {
   const { loadPyodide } = await import("pyodide");
   const pyodide = await loadPyodide({ lockFileURL });
   await init(pyodide);
+  _orderedListHelper = createOrderedListHelper(
+    pyodide as unknown as PyodideLike,
+  );
 }
 
 async function downloadRecipesIfNeeded(recipesDir: string): Promise<void> {

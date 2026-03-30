@@ -15,6 +15,7 @@ import type {
 export interface GenerateOptions {
   templateData?: Uint8Array;
   imageResolver?: (src: string) => Uint8Array | undefined;
+  orderedListHelper?: (pPrPackedId: string) => void;
 }
 
 export function generatePptx(
@@ -81,7 +82,7 @@ export function generatePptx(
             return true;
           });
           if (nonSpecialContent.length > 0) {
-            injectText(ph, nonSpecialContent);
+            injectText(ph, nonSpecialContent, options?.orderedListHelper);
           }
           if (assignment.placeholderType === "body") {
             bodyPlaceholder = ph;
@@ -150,8 +151,12 @@ function findPlaceholderByIdx(slide: any, idx: number): any {
   return undefined;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function injectText(placeholder: any, content: ContentElement[]): void {
+function injectText(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  placeholder: any,
+  content: ContentElement[],
+  orderedListHelper?: (pPrPackedId: string) => void,
+): void {
   const tf = placeholder.text_frame;
   if (!tf) return;
 
@@ -169,7 +174,7 @@ function injectText(placeholder: any, content: ContentElement[]): void {
         isFirst = false;
         break;
       case "list":
-        writeList(tf, element, isFirst);
+        writeList(tf, element, isFirst, orderedListHelper);
         isFirst = false;
         break;
       case "image":
@@ -209,12 +214,27 @@ function writeParagraph(tf: any, para: ParagraphElement, isFirst: boolean) {
   writeRuns(p, para.runs);
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function writeList(tf: any, list: ListElement, isFirst: boolean) {
+function writeList(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  tf: any,
+  list: ListElement,
+  isFirst: boolean,
+  orderedListHelper?: (pPrPackedId: string) => void,
+) {
   for (let i = 0; i < list.items.length; i++) {
     const item = list.items[i];
     const p = isFirst && i === 0 ? tf.paragraphs[0] : tf.add_paragraph();
     p.level = item.level;
+    if (item.ordered && orderedListHelper) {
+      try {
+        const pPr = p._p.pPr as { packed_id: string } | undefined;
+        if (pPr) {
+          orderedListHelper(pPr.packed_id);
+        }
+      } catch {
+        // fallback: ordered list renders as bullet
+      }
+    }
     writeRuns(p, item.runs);
   }
 }
