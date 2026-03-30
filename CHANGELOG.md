@@ -1,5 +1,20 @@
 # md-pptx
 
+## 0.6.0
+
+### Minor Changes
+
+- cf3f45b: Markdown テーブル記法を PPTX テーブルに変換する機能を追加
+
+### Patch Changes
+
+- 9ff67e9: 本文のみ（見出しなし）のスライドで body プレースホルダを持つレイアウトを優先選択するよう修正
+- 62f16ab: fix: 番号付きリスト（ordered list）が箇条書きではなく番号付きでレンダリングされるように修正
+- 953e0d7: プレースホルダー idx が連番でないテンプレートで KeyError が発生する問題を修正
+- b1f7aaa: テンプレートPPTXに既存スライドが2枚以上あるとIndexErrorが発生する問題を修正
+- f79d9f6: テンプレートPPTXの既存スライドが出力に残る問題を修正
+- bdf5491: pptx-glimpse 0.7.1 で Carlito CJK 問題が解決されたため、フォントバンドルとフォントマッピングのワークアラウンドを削除
+
 ## 0.5.2
 
 ### Patch Changes
