@@ -54,7 +54,20 @@ export function selectDefaultLayout(
     findLayout(templateInfo, "Blank") ??
     ({ name: "Blank", placeholders: [] } as LayoutInfo);
 
-  if (!profile.hasHeading && !profile.hasImage) {
+  if (!profile.hasHeading && !profile.hasBody && !profile.hasImage) {
+    return blankLayout;
+  }
+
+  if (!profile.hasHeading && profile.hasBody && !profile.hasImage) {
+    // 本文のみ（見出しなし）: body プレースホルダを持つレイアウトを優先
+    const byName = findLayout(templateInfo, "Title and Content");
+    if (byName && layoutHasPlaceholder(byName, "body")) return byName;
+
+    const byPlaceholder = templateInfo.layouts.find((l) =>
+      layoutHasPlaceholder(l, "body"),
+    );
+    if (byPlaceholder) return byPlaceholder;
+
     return blankLayout;
   }
 
