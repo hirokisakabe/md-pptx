@@ -121,7 +121,7 @@ function createMockSlide(
       // findPlaceholderByIdx は slide.shapes を位置ベースでイテレートする
       length: placeholders.length,
       getItem: vi.fn((i: number) => placeholders[i]),
-      add_picture: vi.fn(),
+      add_picture: vi.fn(() => ({ height: 1828800 })),
       add_textbox: vi.fn(() => {
         const tf = createMockTextFrame();
         return { text_frame: tf };
@@ -769,6 +769,99 @@ describe("generatePptx", () => {
       generatePptx(parseResult, mappings, { imageResolver });
 
       expect(picPh.insert_picture).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("bodyプレースホルダの画像シェイプ", () => {
+    it("imageResolver付きでbodyプレースホルダの画像をpictureシェイプとして追加する", () => {
+      const bodyPh = createMockPlaceholder(1, "body");
+      mockPrs = createMockPresentation(["Title and Content"], () => [bodyPh]);
+      const imageData = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
+      const imageResolver = vi.fn((src: string) => {
+        if (src === "photo.png") return imageData;
+        return undefined;
+      });
+
+      const parseResult: ParseResult = {
+        frontMatter: {},
+        slides: [slideData([image("photo.png")])],
+      };
+      const mappings = [
+        mapping("Title and Content", [
+          {
+            placeholderIdx: 1,
+            placeholderType: "body" as const,
+            content: [image("photo.png")],
+          },
+        ]),
+      ];
+
+      generatePptx(parseResult, mappings, { imageResolver });
+
+      const slide = mockPrs._slides[0];
+      expect(slide.shapes.add_picture).toHaveBeenCalledWith(
+        imageData,
+        expect.anything(),
+        expect.anything(),
+        expect.anything(), // width: body幅またはpx指定値
+        undefined, // height: 未指定
+      );
+    });
+
+    it("imageResolver未指定の場合bodyプレースホルダの画像はフォールバックテキストになる", () => {
+      const bodyPh = createMockPlaceholder(1, "body");
+      mockPrs = createMockPresentation(["Title and Content"], () => [bodyPh]);
+
+      const parseResult: ParseResult = {
+        frontMatter: {},
+        slides: [slideData([image("photo.png")])],
+      };
+      const mappings = [
+        mapping("Title and Content", [
+          {
+            placeholderIdx: 1,
+            placeholderType: "body" as const,
+            content: [image("photo.png")],
+          },
+        ]),
+      ];
+
+      generatePptx(parseResult, mappings);
+
+      const slide = mockPrs._slides[0];
+      expect(slide.shapes.add_picture).not.toHaveBeenCalled();
+      // フォールバックテキストが書き込まれていること
+      const tf = bodyPh.text_frame;
+      const runs = tf.paragraphs[0].runs;
+      expect(runs[0].text).toBe("[Image: photo.png]");
+    });
+
+    it("imageResolverがundefinedを返す場合bodyプレースホルダの画像はフォールバックテキストになる", () => {
+      const bodyPh = createMockPlaceholder(1, "body");
+      mockPrs = createMockPresentation(["Title and Content"], () => [bodyPh]);
+      const imageResolver = vi.fn(() => undefined);
+
+      const parseResult: ParseResult = {
+        frontMatter: {},
+        slides: [slideData([image("missing.png")])],
+      };
+      const mappings = [
+        mapping("Title and Content", [
+          {
+            placeholderIdx: 1,
+            placeholderType: "body" as const,
+            content: [image("missing.png")],
+          },
+        ]),
+      ];
+
+      generatePptx(parseResult, mappings, { imageResolver });
+
+      const slide = mockPrs._slides[0];
+      expect(slide.shapes.add_picture).not.toHaveBeenCalled();
+      const tf = bodyPh.text_frame;
+      const runs = tf.paragraphs[0].runs;
+      expect(runs[0].text).toBe("[Image: missing.png]");
     });
   });
 

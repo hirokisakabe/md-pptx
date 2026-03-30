@@ -59,6 +59,7 @@ export function generatePptx(
 
       const codeBlocks: CodeBlockElement[] = [];
       const tables: TableElement[] = [];
+      const images: { element: ImageElement; data: Uint8Array }[] = [];
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let bodyPlaceholder: any = undefined;
 
@@ -78,6 +79,13 @@ export function generatePptx(
             if (c.type === "table") {
               tables.push(c);
               return false;
+            }
+            if (c.type === "image" && options?.imageResolver) {
+              const data = options.imageResolver(c.image.src);
+              if (data) {
+                images.push({ element: c, data });
+                return false;
+              }
             }
             return true;
           });
@@ -100,6 +108,16 @@ export function generatePptx(
         shapeTopOffset = addTableShapes(
           slide,
           tables,
+          prs,
+          bodyPlaceholder,
+          shapeTopOffset,
+        );
+      }
+
+      if (images.length > 0) {
+        shapeTopOffset = addImageShapes(
+          slide,
+          images,
           prs,
           bodyPlaceholder,
           shapeTopOffset,
@@ -390,6 +408,44 @@ function addCodeBlockTextBoxes(
 
     currentTop += boxHeight + blockGap;
   }
+}
+
+/** px → EMU 変換 (96 DPI 基準: 1px = 9525 EMU) */
+const PX_TO_EMU = 9525;
+
+function addImageShapes(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  slide: any,
+  images: { element: ImageElement; data: Uint8Array }[],
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  prs: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  bodyPlaceholder?: any,
+  topOffset?: number,
+): number {
+  const pos = resolveShapePosition(prs, bodyPlaceholder, topOffset);
+  let currentTop = pos.top;
+  const imageGap = Number(Pt(8));
+
+  for (const { element, data } of images) {
+    const imgWidth = element.image.width;
+    const imgHeight = element.image.height;
+
+    const width = imgWidth ? Emu(imgWidth * PX_TO_EMU) : Emu(pos.width);
+    const height = imgHeight ? Emu(imgHeight * PX_TO_EMU) : undefined;
+
+    const pic = slide.shapes.add_picture(
+      data,
+      Emu(pos.left),
+      Emu(currentTop),
+      width,
+      height,
+    );
+
+    currentTop += Number(pic.height ?? height ?? Inches(2)) + imageGap;
+  }
+
+  return currentTop;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
