@@ -80,6 +80,10 @@ async function main() {
       name: "with-table",
       mdPath: join(VRT_FIXTURES, "with-table.md"),
     },
+    {
+      name: "body-only",
+      mdPath: join(VRT_FIXTURES, "body-only.md"),
+    },
     { name: "sample", mdPath: join(SAMPLE_DIR, "sample.md") },
   ];
 

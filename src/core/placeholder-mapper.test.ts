@@ -433,7 +433,7 @@ describe("mapPresentation", () => {
     expect(bodyAssignment).toBeDefined();
   });
 
-  it("layoutが未指定で本文のみのスライドはBlankにフォールバックする", () => {
+  it("layoutが未指定で本文のみのスライドはTitle and Contentを自動選択する", () => {
     const parseResult: ParseResult = {
       frontMatter: {},
       slides: [slide([paragraph("本文のみ")])],
@@ -442,7 +442,15 @@ describe("mapPresentation", () => {
     const results = mapPresentation(parseResult, templateInfo);
 
     expect(results).toHaveLength(1);
-    expect(results[0].layoutName).toBe("Blank");
+    expect(results[0].layoutName).toBe("Title and Content");
+    expect(results[0].fallbackToBlank).toBe(false);
+
+    const bodyAssignment = results[0].assignments.find(
+      (a) => a.placeholderType === "body",
+    );
+    expect(bodyAssignment).toBeDefined();
+    expect(bodyAssignment!.content).toHaveLength(1);
+    expect(bodyAssignment!.content[0].type).toBe("paragraph");
   });
 
   it("テンプレートにBlankレイアウトがあればフォールバック時にそれを使う", () => {
@@ -524,10 +532,51 @@ describe("selectDefaultLayout", () => {
     expect(layout.name).toBe("Title Slide");
   });
 
-  it("本文のみ → Blank を選択する", () => {
+  it("本文のみ → Title and Content を選択する（bodyプレースホルダを優先）", () => {
     const s = slide([paragraph("本文のみ")]);
     const layout = selectDefaultLayout(s, templateInfo);
+    expect(layout.name).toBe("Title and Content");
+  });
+
+  it("本文のみでTitle and Contentがない場合、bodyプレースホルダを持つレイアウトを選択する", () => {
+    const customTemplate: TemplateInfo = {
+      layouts: [
+        {
+          name: "カスタムBody",
+          placeholders: [{ idx: 0, type: "body", name: "Body 1" }],
+        },
+        BLANK_LAYOUT,
+      ],
+    };
+    const s = slide([paragraph("本文のみ")]);
+    const layout = selectDefaultLayout(s, customTemplate);
+    expect(layout.name).toBe("カスタムBody");
+  });
+
+  it("本文のみでbodyプレースホルダを持つレイアウトがない場合、Blankにフォールバックする", () => {
+    const noBodyTemplate: TemplateInfo = {
+      layouts: [TITLE_ONLY_LAYOUT, BLANK_LAYOUT],
+    };
+    const s = slide([paragraph("本文のみ")]);
+    const layout = selectDefaultLayout(s, noBodyTemplate);
     expect(layout.name).toBe("Blank");
+  });
+
+  it("本文のみでTitle and Contentがbodyプレースホルダを持たない場合、他のbodyありレイアウトを選択する", () => {
+    const titleAndContentWithoutBody: LayoutInfo = {
+      name: "Title and Content",
+      placeholders: [{ idx: 0, type: "title", name: "Title 1" }],
+    };
+    const bodyLayout: LayoutInfo = {
+      name: "Custom Body Layout",
+      placeholders: [{ idx: 0, type: "body", name: "Body 1" }],
+    };
+    const customTemplate: TemplateInfo = {
+      layouts: [titleAndContentWithoutBody, bodyLayout, BLANK_LAYOUT],
+    };
+    const s = slide([paragraph("本文のみ")]);
+    const layout = selectDefaultLayout(s, customTemplate);
+    expect(layout.name).toBe("Custom Body Layout");
   });
 
   it("コンテンツなし → Blank を選択する", () => {
