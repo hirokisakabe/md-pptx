@@ -23,6 +23,12 @@ function createMockRun() {
       size: undefined as unknown,
       name: undefined as string | undefined,
       underline: undefined as boolean | undefined,
+      _rPr: {
+        _attributes: {} as Record<string, string>,
+        set(key: string, value: string) {
+          this._attributes[key] = value;
+        },
+      },
     },
     hyperlink: {
       address: undefined as string | undefined,
@@ -631,6 +637,43 @@ describe("generatePptx", () => {
       expect(p.runs[1].font.bold).toBe(true);
       expect(p.runs[2].text).toBe("斜体");
       expect(p.runs[2].font.italic).toBe(true);
+    });
+
+    it("strikethroughフォーマットを適用する", () => {
+      const bodyPh = createMockPlaceholder(1, "body");
+      mockPrs = createMockPresentation(["Title and Content"], () => [bodyPh]);
+      const parseResult: ParseResult = {
+        frontMatter: {},
+        slides: [
+          slideData([
+            {
+              type: "paragraph",
+              runs: [
+                { text: "通常" },
+                { text: "取り消し線", strikethrough: true },
+              ],
+            } as ParagraphElement,
+          ]),
+        ],
+      };
+      const mappings = [
+        mapping("Title and Content", [
+          {
+            placeholderIdx: 1,
+            placeholderType: "body",
+            content: parseResult.slides[0].content,
+          },
+        ]),
+      ];
+
+      generatePptx(parseResult, mappings);
+
+      const p = bodyPh.text_frame.paragraphs[0];
+      expect(p.runs).toHaveLength(2);
+      expect(p.runs[0].text).toBe("通常");
+      expect(p.runs[0].font._rPr._attributes).toEqual({});
+      expect(p.runs[1].text).toBe("取り消し線");
+      expect(p.runs[1].font._rPr._attributes["strike"]).toBe("sngStrike");
     });
 
     it("codeフォーマットでCourier Newフォントを適用する", () => {

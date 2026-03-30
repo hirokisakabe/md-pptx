@@ -464,7 +464,13 @@ function writeRuns(paragraph: any, runs: TextRun[]) {
     run.text = textRun.text;
     if (textRun.bold) run.font.bold = true;
     if (textRun.italic) run.font.italic = true;
-    // strikethrough is not supported by python-pptx-wasm; skipped
+    if (textRun.strikethrough) {
+      try {
+        run.font._rPr.set("strike", "sngStrike");
+      } catch {
+        // strikethrough may not be supported
+      }
+    }
     if (textRun.link) {
       try {
         run.hyperlink.address = textRun.link;
