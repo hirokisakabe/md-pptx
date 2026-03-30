@@ -19,16 +19,20 @@ const DIFF_DIR = join(__dirname, "diffs");
 const PIXEL_THRESHOLD = 0.3;
 const MISMATCH_TOLERANCE = 0.05;
 
-// テストケース定義
-const VRT_CASES = [
-  { name: "basic" },
-  { name: "multi-slide" },
-  { name: "with-image" },
-  { name: "with-formatting" },
-  { name: "heading-divider" },
-  { name: "with-code-block" },
-  { name: "sample" },
-] as const;
+/** snapshots/ と actual/ の PNG ファイルからフィクスチャ名を自動検出する（和集合） */
+function detectVrtCases(): { name: string }[] {
+  const names = new Set<string>();
+  for (const dir of [SNAPSHOT_DIR, ACTUAL_DIR]) {
+    if (!existsSync(dir)) continue;
+    for (const f of readdirSync(dir)) {
+      const match = f.match(/^(.+)-slide\d+\.png$/);
+      if (match) names.add(match[1]);
+    }
+  }
+  return [...names].sort().map((name) => ({ name }));
+}
+
+const VRT_CASES = detectVrtCases();
 
 /** actual/ ディレクトリから指定名のスライド PNG を収集する */
 function collectActualSlides(name: string): string[] {
@@ -55,9 +59,8 @@ describeOrSkip(
     for (const testCase of VRT_CASES) {
       const { name } = testCase;
       const actualSlides = collectActualSlides(name);
-      const snapshotSlide1 = join(SNAPSHOT_DIR, `${name}-slide1.png`);
-      const itOrSkip =
-        actualSlides.length > 0 && existsSync(snapshotSlide1) ? it : it.skip;
+      // actual がない場合のみスキップ（スナップショット未作成はテスト内で失敗させる）
+      const itOrSkip = actualSlides.length > 0 ? it : it.skip;
 
       describe(name, () => {
         itOrSkip("should match LibreOffice reference", () => {

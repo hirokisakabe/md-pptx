@@ -4,8 +4,14 @@
  * Usage:
  *   npx tsx vrt/libreoffice/generate_fixtures.ts
  */
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
-import { join, dirname } from "node:path";
+import {
+  readFileSync,
+  writeFileSync,
+  mkdirSync,
+  existsSync,
+  readdirSync,
+} from "node:fs";
+import { join, dirname, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 import { init } from "python-pptx-wasm";
 import { loadPyodide } from "pyodide";
@@ -26,6 +32,9 @@ interface FixtureEntry {
   imageResolver?: (src: string) => Uint8Array | undefined;
 }
 
+/** imageResolver が必要なフィクスチャ名のセット */
+const FIXTURES_REQUIRING_IMAGE_RESOLVER = new Set(["with-image"]);
+
 function buildPptx(
   mdContent: string,
   options?: { imageResolver?: (src: string) => Uint8Array | undefined },
@@ -36,6 +45,28 @@ function buildPptx(
   return generatePptx(parseResult, mappingResults, {
     imageResolver: options?.imageResolver,
   });
+}
+
+/** vrt/fixtures/ 内の .md ファイルと sample/sample.md からフィクスチャ一覧を自動生成する */
+function collectFixtures(
+  imageResolver: (src: string) => Uint8Array | undefined,
+): FixtureEntry[] {
+  const fixtures: FixtureEntry[] = readdirSync(VRT_FIXTURES)
+    .filter((f) => f.endsWith(".md"))
+    .sort()
+    .map((f) => {
+      const name = basename(f, ".md");
+      const entry: FixtureEntry = { name, mdPath: join(VRT_FIXTURES, f) };
+      if (FIXTURES_REQUIRING_IMAGE_RESOLVER.has(name)) {
+        entry.imageResolver = imageResolver;
+      }
+      return entry;
+    });
+
+  // sample/sample.md は vrt/fixtures/ 外にあるため個別追加
+  fixtures.push({ name: "sample", mdPath: join(SAMPLE_DIR, "sample.md") });
+
+  return fixtures;
 }
 
 async function main() {
@@ -56,36 +87,7 @@ async function main() {
     return undefined;
   };
 
-  const fixtures: FixtureEntry[] = [
-    { name: "basic", mdPath: join(VRT_FIXTURES, "basic.md") },
-    { name: "multi-slide", mdPath: join(VRT_FIXTURES, "multi-slide.md") },
-    {
-      name: "with-image",
-      mdPath: join(VRT_FIXTURES, "with-image.md"),
-      imageResolver,
-    },
-    {
-      name: "with-formatting",
-      mdPath: join(VRT_FIXTURES, "with-formatting.md"),
-    },
-    {
-      name: "heading-divider",
-      mdPath: join(VRT_FIXTURES, "heading-divider.md"),
-    },
-    {
-      name: "with-code-block",
-      mdPath: join(VRT_FIXTURES, "with-code-block.md"),
-    },
-    {
-      name: "with-table",
-      mdPath: join(VRT_FIXTURES, "with-table.md"),
-    },
-    {
-      name: "body-only",
-      mdPath: join(VRT_FIXTURES, "body-only.md"),
-    },
-    { name: "sample", mdPath: join(SAMPLE_DIR, "sample.md") },
-  ];
+  const fixtures = collectFixtures(imageResolver);
 
   for (const fixture of fixtures) {
     if (!existsSync(fixture.mdPath)) {
