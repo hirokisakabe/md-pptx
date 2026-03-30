@@ -123,12 +123,16 @@ export function generatePptx(
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function findPlaceholderByIdx(slide: any, idx: number): any {
-  const placeholders = slide.placeholders;
-  for (let i = 0; i < placeholders.length; i++) {
-    const ph = placeholders.getItem(i);
+  // slide.placeholders は SlidePlaceholders であり、getItem() もイテレータも
+  // 位置インデックスではなくプレースホルダー idx で検索するため、
+  // 連番でない idx を持つテンプレートで KeyError になる。
+  // slide.shapes は SlideShapes であり、位置ベースの getItem() を持つため安全に走査できる。
+  const shapes = slide.shapes;
+  for (let i = 0; i < shapes.length; i++) {
+    const shape = shapes.getItem(i);
     try {
-      if (ph.placeholder_format?.idx === idx) {
-        return ph;
+      if (shape.placeholder_format?.idx === idx) {
+        return shape;
       }
     } catch {
       // placeholder_format may throw for non-placeholder shapes

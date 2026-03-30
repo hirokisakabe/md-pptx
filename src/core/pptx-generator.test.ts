@@ -112,6 +112,9 @@ function createMockSlide(
       notes_text_frame: notesTextFrame,
     },
     shapes: {
+      // findPlaceholderByIdx は slide.shapes を位置ベースでイテレートする
+      length: placeholders.length,
+      getItem: vi.fn((i: number) => placeholders[i]),
       add_picture: vi.fn(),
       add_textbox: vi.fn(() => {
         const tf = createMockTextFrame();
@@ -817,6 +820,49 @@ describe("generatePptx", () => {
       const bodyCell = mockTable.cell.mock.results[2].value;
       expect(bodyCell.text_frame.paragraphs[0].runs[0].text).toBe("C1");
       expect(bodyCell.text_frame.paragraphs[0].font.bold).toBeUndefined();
+    });
+  });
+
+  describe("非連番プレースホルダー idx", () => {
+    it("idx が連番でないプレースホルダーに正しくアクセスできる", () => {
+      // 実際のテンプレートでは idx が 0, 10, 13 のように連番でないケースがある
+      const titlePh = createMockPlaceholder(0, "title");
+      const bodyPh = createMockPlaceholder(10, "body");
+      mockPrs = createMockPresentation(["Custom Layout"], () => [
+        titlePh,
+        bodyPh,
+      ]);
+
+      const parseResult: ParseResult = {
+        frontMatter: {},
+        slides: [
+          slideData([heading(1, "タイトル"), paragraph("本文テキスト")]),
+        ],
+      };
+      const mappings = [
+        mapping("Custom Layout", [
+          {
+            placeholderIdx: 0,
+            placeholderType: "title",
+            content: [heading(1, "タイトル")],
+          },
+          {
+            placeholderIdx: 10,
+            placeholderType: "body",
+            content: [paragraph("本文テキスト")],
+          },
+        ]),
+      ];
+
+      generatePptx(parseResult, mappings);
+
+      // タイトルが正しく注入されていること
+      const titleRun = titlePh.text_frame.paragraphs[0].runs[0];
+      expect(titleRun.text).toBe("タイトル");
+
+      // idx=10 の body プレースホルダーにも正しく注入されていること
+      const bodyRun = bodyPh.text_frame.paragraphs[0].runs[0];
+      expect(bodyRun.text).toBe("本文テキスト");
     });
   });
 
