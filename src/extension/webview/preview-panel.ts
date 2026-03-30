@@ -8,18 +8,8 @@ import {
   generatePptx,
 } from "../../index.js";
 import { convertPptxToSvg } from "pptx-glimpse";
-import type { FontMapping } from "pptx-glimpse";
 import { ensureInitialized } from "../pyodide-loader";
 import { buildHtml, buildLoadingHtml, buildErrorHtml } from "./slide-renderer";
-
-const EXTRA_FONT_MAPPING: FontMapping = {
-  Calibri: "Noto Sans JP",
-  "Calibri Light": "Noto Sans JP",
-  "游ゴシック Light": "Noto Sans JP",
-  "Yu Gothic Light": "Noto Sans JP",
-  "ＭＳ Ｐゴシック": "Noto Sans JP",
-  "MS PGothic": "Noto Sans JP",
-};
 
 export class PreviewPanel {
   public static readonly viewType = "md-pptx.preview";
@@ -147,13 +137,7 @@ export class PreviewPanel {
 
       if (seq !== this.updateSeq) return;
 
-      const fontDirs = [
-        path.join(this.extensionContext.extensionPath, "fonts"),
-      ];
-      const slides = await convertPptxToSvg(pptxData, {
-        fontDirs,
-        fontMapping: EXTRA_FONT_MAPPING,
-      });
+      const slides = await convertPptxToSvg(pptxData);
       const svgs = slides.map((s) => s.svg);
 
       if (seq !== this.updateSeq) return;
