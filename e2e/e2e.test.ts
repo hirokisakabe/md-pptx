@@ -18,6 +18,10 @@ function readFixture(name: string): string {
   return readFileSync(join(FIXTURES, name), "utf-8");
 }
 
+function readFixtureBinary(name: string): Uint8Array {
+  return new Uint8Array(readFileSync(join(FIXTURES, name)));
+}
+
 /** 生成したPPTXバイナリを検証するヘルパー */
 function assertValidPptx(data: Uint8Array) {
   // PPTXはZIP形式なのでマジックバイト PK (0x50, 0x4B) で始まる
@@ -38,12 +42,42 @@ async function countSlides(data: Uint8Array | JSZip): Promise<number> {
   return count;
 }
 
+/** スライドが参照するレイアウト XML の name 属性を取得するヘルパー */
+async function getSlideLayoutName(
+  zip: JSZip,
+  slideIndex: number,
+): Promise<string | null> {
+  const relsPath = `ppt/slides/_rels/slide${slideIndex}.xml.rels`;
+  const relsFile = zip.file(relsPath);
+  if (!relsFile) return null;
+  const relsXml = await relsFile.async("string");
+  const layoutMatch = relsXml.match(
+    /Target="(\.\.\/slideLayouts\/slideLayout\d+\.xml)"/,
+  );
+  if (!layoutMatch) return null;
+  const layoutPath = layoutMatch[1].replace("../", "ppt/");
+  const layoutFile = zip.file(layoutPath);
+  if (!layoutFile) return null;
+  const layoutXml = await layoutFile.async("string");
+  const nameMatch = layoutXml.match(/name="([^"]+)"/);
+  return nameMatch ? nameMatch[1] : null;
+}
+
 /** Markdown → PPTX 生成のE2Eパイプライン */
-function buildPptx(mdContent: string): Uint8Array {
+function buildPptx(
+  mdContent: string,
+  options?: {
+    templateData?: Uint8Array;
+    imageResolver?: (src: string) => Uint8Array | undefined;
+  },
+): Uint8Array {
   const parseResult = parseMarkdown(mdContent);
-  const templateInfo = readTemplate();
+  const templateInfo = readTemplate(options?.templateData);
   const mappingResults = mapPresentation(parseResult, templateInfo);
-  return generatePptx(parseResult, mappingResults);
+  return generatePptx(parseResult, mappingResults, {
+    templateData: options?.templateData,
+    imageResolver: options?.imageResolver,
+  });
 }
 
 beforeAll(async () => {
@@ -52,6 +86,91 @@ beforeAll(async () => {
   const pyodide = await loadPyodide({ lockFileURL });
   await init(pyodide);
 }, 120_000);
+
+describe("E2E: テンプレートPPTXを使用した生成", () => {
+  it("テンプレート指定時にPPTXが正常に生成される", async () => {
+    const templateData = readFixtureBinary("test-template.pptx");
+    const md = readFixture("basic.md");
+    const pptxData = buildPptx(md, { templateData });
+
+    assertValidPptx(pptxData);
+    const slideCount = await countSlides(pptxData);
+    expect(slideCount).toBe(1);
+  });
+
+  it("テンプレートのレイアウトを明示的に指定して生成できる", async () => {
+    const templateData = readFixtureBinary("test-template.pptx");
+    const md = [
+      "---",
+      "layout: Section Header",
+      "---",
+      "",
+      "# セクションタイトル",
+      "",
+      "セクションの説明テキスト",
+    ].join("\n");
+    const pptxData = buildPptx(md, { templateData });
+
+    assertValidPptx(pptxData);
+    const zip = await JSZip.loadAsync(pptxData);
+    const slideXml = await zip.file("ppt/slides/slide1.xml")!.async("string");
+    expect(slideXml).toContain("セクションタイトル");
+
+    // 実際に Section Header レイアウトが使用されていることを検証
+    const layoutName = await getSlideLayoutName(zip, 1);
+    expect(layoutName).toBe("Section Header");
+  });
+
+  it("非連番プレースホルダー idx レイアウトでテキストが注入される", async () => {
+    const templateData = readFixtureBinary("test-template.pptx");
+    const md = [
+      "---",
+      "layout: Non Sequential Idx",
+      "---",
+      "",
+      "# 非連番タイトル",
+      "",
+      "非連番ボディテキスト",
+    ].join("\n");
+    const pptxData = buildPptx(md, { templateData });
+
+    assertValidPptx(pptxData);
+    const zip = await JSZip.loadAsync(pptxData);
+    const slideXml = await zip.file("ppt/slides/slide1.xml")!.async("string");
+    expect(slideXml).toContain("非連番タイトル");
+    expect(slideXml).toContain("非連番ボディテキスト");
+
+    // 実際に Non Sequential Idx レイアウトが使用されていることを検証
+    const layoutName = await getSlideLayoutName(zip, 1);
+    expect(layoutName).toBe("Non Sequential Idx");
+  });
+
+  it("テンプレート使用時に複数スライドを生成できる", async () => {
+    const templateData = readFixtureBinary("test-template.pptx");
+    const md = [
+      "# スライド1",
+      "",
+      "本文1",
+      "",
+      "---",
+      "",
+      "# スライド2",
+      "",
+      "本文2",
+      "",
+      "---",
+      "",
+      "# スライド3",
+      "",
+      "本文3",
+    ].join("\n");
+    const pptxData = buildPptx(md, { templateData });
+
+    assertValidPptx(pptxData);
+    const slideCount = await countSlides(pptxData);
+    expect(slideCount).toBe(3);
+  });
+});
 
 describe("E2E: 生成PPTXの内容検証", () => {
   it("生成PPTXにスライドXMLが含まれている", async () => {
