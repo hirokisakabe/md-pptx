@@ -234,6 +234,16 @@ async function addBackgroundImages(zip: JSZip): Promise<void> {
   await addLayoutBackground(zip);
 }
 
+/** XML 内の既存 <p:bg>...</p:bg> を新しい背景 XML で置換、なければ <p:cSld> 直後に挿入 */
+function replaceOrInsertBackground(xml: string, bgXml: string): string {
+  if (/<p:bg>[\s\S]*?<\/p:bg>/.test(xml)) {
+    // 既存の <p:bg> を全て削除してから挿入（重複防止）
+    const cleaned = xml.replace(/<p:bg>[\s\S]*?<\/p:bg>/g, "");
+    return cleaned.replace(/(<p:cSld[^>]*>)/, `$1\n    ${bgXml}`);
+  }
+  return xml.replace(/(<p:cSld[^>]*>)/, `$1\n    ${bgXml}`);
+}
+
 /** スライドマスターに背景画像を設定する */
 async function addMasterBackground(zip: JSZip): Promise<void> {
   const masterPath = "ppt/slideMasters/slideMaster1.xml";
@@ -249,7 +259,6 @@ async function addMasterBackground(zip: JSZip): Promise<void> {
   );
   zip.file(masterRelsPath, masterRels);
 
-  // slideMaster XML に <p:bg> を追加
   let masterXml = await zip.file(masterPath)!.async("string");
   const bgXml = `<p:bg>
       <p:bgPr>
@@ -261,8 +270,7 @@ async function addMasterBackground(zip: JSZip): Promise<void> {
       </p:bgPr>
     </p:bg>`;
 
-  // <p:cSld> の直後の子要素として <p:bg> を挿入
-  masterXml = masterXml.replace(/(<p:cSld[^>]*>)/, `$1\n    ${bgXml}`);
+  masterXml = replaceOrInsertBackground(masterXml, bgXml);
   zip.file(masterPath, masterXml);
 }
 
@@ -315,7 +323,7 @@ async function addLayoutBackground(zip: JSZip): Promise<void> {
       </p:bgPr>
     </p:bg>`;
 
-  layoutXml = layoutXml.replace(/(<p:cSld[^>]*>)/, `$1\n    ${bgXml}`);
+  layoutXml = replaceOrInsertBackground(layoutXml, bgXml);
   zip.file(targetLayoutPath, layoutXml);
 }
 
