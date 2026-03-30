@@ -9,7 +9,11 @@ import { generatePptx } from "./core/pptx-generator.js";
 
 export function buildAction(
   markdownPath: string,
-  options: { template?: string; output?: string },
+  options: {
+    template?: string;
+    output?: string;
+    orderedListHelper?: (pPrPackedId: string) => void;
+  },
 ): void {
   const resolvedMdPath = resolve(markdownPath);
   const mdContent = readFileSync(resolvedMdPath, "utf-8");
@@ -40,6 +44,7 @@ export function buildAction(
   const pptxData = generatePptx(parseResult, mappingResults, {
     templateData,
     imageResolver,
+    orderedListHelper: options.orderedListHelper,
   });
 
   const outputPath =

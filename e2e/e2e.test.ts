@@ -10,6 +10,10 @@ import { readTemplate } from "../src/core/template-reader.js";
 import { mapPresentation } from "../src/core/placeholder-mapper.js";
 import { generatePptx } from "../src/core/pptx-generator.js";
 import { extractBackgrounds } from "../src/core/slide-master-extractor.js";
+import {
+  createOrderedListHelper,
+  type PyodideLike,
+} from "../src/core/ordered-list-xml.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const FIXTURES = join(__dirname, "fixtures");
@@ -64,6 +68,8 @@ async function getSlideLayoutName(
   return nameMatch ? nameMatch[1] : null;
 }
 
+let orderedListHelper: ((pPrPackedId: string) => void) | undefined;
+
 /** Markdown → PPTX 生成のE2Eパイプライン */
 function buildPptx(
   mdContent: string,
@@ -78,6 +84,7 @@ function buildPptx(
   return generatePptx(parseResult, mappingResults, {
     templateData: options?.templateData,
     imageResolver: options?.imageResolver,
+    orderedListHelper,
   });
 }
 
@@ -86,6 +93,9 @@ beforeAll(async () => {
   const lockFileURL = join(RECIPES, "pyodide-lock.json");
   const pyodide = await loadPyodide({ lockFileURL });
   await init(pyodide);
+  orderedListHelper = createOrderedListHelper(
+    pyodide as unknown as PyodideLike,
+  );
 }, 120_000);
 
 describe("E2E: テンプレートPPTXを使用した生成", () => {
@@ -271,5 +281,38 @@ describe("E2E: 生成PPTXの内容検証", () => {
     expect(notesFile).not.toBeNull();
     const notesXml = await notesFile!.async("string");
     expect(notesXml).toContain("ここがプレゼンターノートになります");
+  });
+});
+
+describe("E2E: 番号付きリスト", () => {
+  it("番号付きリストが buAutoNum 付きで出力される", async () => {
+    const md = `## 番号付きリスト
+
+1. 最初の項目
+2. 二番目の項目
+3. 三番目の項目
+`;
+    const pptxData = buildPptx(md);
+    assertValidPptx(pptxData);
+
+    const zip = await JSZip.loadAsync(pptxData);
+    const slideXml = await zip.file("ppt/slides/slide1.xml")!.async("string");
+    expect(slideXml).toContain("buAutoNum");
+    expect(slideXml).toContain("arabicPeriod");
+  });
+
+  it("箇条書きリストには buAutoNum が含まれない", async () => {
+    const md = `## 箇条書き
+
+- 項目A
+- 項目B
+- 項目C
+`;
+    const pptxData = buildPptx(md);
+    assertValidPptx(pptxData);
+
+    const zip = await JSZip.loadAsync(pptxData);
+    const slideXml = await zip.file("ppt/slides/slide1.xml")!.async("string");
+    expect(slideXml).not.toContain("buAutoNum");
   });
 });

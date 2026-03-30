@@ -7,6 +7,7 @@ export {
 } from "./core/placeholder-mapper.js";
 export { generatePptx } from "./core/pptx-generator.js";
 export type { GenerateOptions } from "./core/pptx-generator.js";
+export { createOrderedListHelper } from "./core/ordered-list-xml.js";
 export { extractBackgrounds } from "./core/slide-master-extractor.js";
 export type {
   ParseResult,

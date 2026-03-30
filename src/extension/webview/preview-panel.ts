@@ -8,7 +8,7 @@ import {
   generatePptx,
 } from "../../index.js";
 import { convertPptxToSvg } from "pptx-glimpse";
-import { ensureInitialized } from "../pyodide-loader";
+import { ensureInitialized, getOrderedListHelper } from "../pyodide-loader";
 import { buildHtml, buildLoadingHtml, buildErrorHtml } from "./slide-renderer";
 
 export class PreviewPanel {
@@ -133,6 +133,7 @@ export class PreviewPanel {
       const pptxData = generatePptx(parseResult, mappingResults, {
         templateData,
         imageResolver,
+        orderedListHelper: getOrderedListHelper(),
       });
 
       if (seq !== this.updateSeq) return;

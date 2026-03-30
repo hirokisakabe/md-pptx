@@ -32,6 +32,7 @@ function createMockRun() {
 
 function createMockParagraph() {
   const runs: ReturnType<typeof createMockRun>[] = [];
+  const packedId = `@_pk:mock|mock|_element,pPr`;
   return {
     text: "",
     level: 0,
@@ -46,6 +47,11 @@ function createMockParagraph() {
       runs.push(run);
       return run;
     }),
+    _p: {
+      pPr: {
+        packed_id: packedId,
+      },
+    },
   };
 }
 
@@ -509,6 +515,80 @@ describe("generatePptx", () => {
       expect(paragraphs[0].level).toBe(0);
       expect(paragraphs[1].level).toBe(1);
       expect(paragraphs[2].level).toBe(0);
+    });
+
+    it("番号付きリストでorderedListHelperを呼び出す", () => {
+      const bodyPh = createMockPlaceholder(1, "body");
+      mockPrs = createMockPresentation(["Title and Content"], () => [bodyPh]);
+      const parseResult: ParseResult = {
+        frontMatter: {},
+        slides: [
+          slideData([
+            list([
+              { text: "First", level: 0, ordered: true },
+              { text: "Second", level: 0, ordered: true },
+            ]),
+          ]),
+        ],
+      };
+      const mappings = [
+        mapping("Title and Content", [
+          {
+            placeholderIdx: 1,
+            placeholderType: "body",
+            content: [
+              list([
+                { text: "First", level: 0, ordered: true },
+                { text: "Second", level: 0, ordered: true },
+              ]),
+            ],
+          },
+        ]),
+      ];
+
+      const orderedListHelper = vi.fn();
+      generatePptx(parseResult, mappings, { orderedListHelper });
+
+      // orderedListHelper は各 ordered item の pPr.packed_id で呼ばれる
+      expect(orderedListHelper).toHaveBeenCalledTimes(2);
+      expect(orderedListHelper).toHaveBeenCalledWith(
+        "@_pk:mock|mock|_element,pPr",
+      );
+    });
+
+    it("箇条書きリストではorderedListHelperを呼び出さない", () => {
+      const bodyPh = createMockPlaceholder(1, "body");
+      mockPrs = createMockPresentation(["Title and Content"], () => [bodyPh]);
+      const parseResult: ParseResult = {
+        frontMatter: {},
+        slides: [
+          slideData([
+            list([
+              { text: "Bullet1", level: 0, ordered: false },
+              { text: "Bullet2", level: 0, ordered: false },
+            ]),
+          ]),
+        ],
+      };
+      const mappings = [
+        mapping("Title and Content", [
+          {
+            placeholderIdx: 1,
+            placeholderType: "body",
+            content: [
+              list([
+                { text: "Bullet1", level: 0, ordered: false },
+                { text: "Bullet2", level: 0, ordered: false },
+              ]),
+            ],
+          },
+        ]),
+      ];
+
+      const orderedListHelper = vi.fn();
+      generatePptx(parseResult, mappings, { orderedListHelper });
+
+      expect(orderedListHelper).not.toHaveBeenCalled();
     });
   });
 
