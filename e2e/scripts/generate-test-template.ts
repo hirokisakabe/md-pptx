@@ -2,7 +2,9 @@
  * テスト用テンプレート PPTX を生成するスクリプト。
  *
  * python-pptx-wasm のデフォルト Presentation() をベースに、
- * 非連番プレースホルダー idx を持つカスタムレイアウトを追加する。
+ * - 非連番プレースホルダー idx を持つカスタムレイアウトを追加
+ * - スライドマスター背景画像を設定
+ * - 特定レイアウト（Section Header）に固有の背景画像を設定
  *
  * Usage:
  *   npx tsx e2e/scripts/generate-test-template.ts
@@ -17,14 +19,33 @@ import JSZip from "jszip";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const RECIPES = join(__dirname, "..", "assets", "recipes");
-const OUTPUT_DIR = join(__dirname, "..", "fixtures");
+const FIXTURES_DIR = join(__dirname, "..", "fixtures");
 
-/**
- * 非連番プレースホルダー idx を持つカスタムレイアウト XML を生成する。
- *
- * idx=0 (title), idx=10 (body) のように連番でない配置にすることで、
- * プレースホルダーアクセス時の KeyError 問題 (#107) をテストできる。
- */
+// --- ヘルパー: rels の rId 管理 ---
+
+/** rels XML 内の最大 rId 番号を取得する */
+function getMaxRId(relsXml: string): number {
+  const matches = [...relsXml.matchAll(/Id="rId(\d+)"/g)];
+  if (matches.length === 0) return 0;
+  return Math.max(...matches.map((m) => parseInt(m[1], 10)));
+}
+
+/** rels XML に新しい Relationship を追加して返す */
+function addRelationship(
+  relsXml: string,
+  rId: string,
+  type: string,
+  target: string,
+): string {
+  return relsXml.replace(
+    "</Relationships>",
+    `  <Relationship Id="${rId}" Type="${type}" Target="${target}"/>
+</Relationships>`,
+  );
+}
+
+// --- 非連番プレースホルダー idx レイアウト ---
+
 function buildNonSequentialLayoutXml(): string {
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <p:sldLayout xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
@@ -88,14 +109,27 @@ function buildNonSequentialLayoutXml(): string {
 </p:sldLayout>`;
 }
 
+// --- カスタマイズ処理 ---
+
 /**
- * デフォルトテンプレートに非連番 idx レイアウトを追加して返す。
+ * デフォルトテンプレートに以下を追加して返す:
+ * 1. 非連番 idx レイアウト
+ * 2. スライドマスター背景画像 (bg-master.jpg)
+ * 3. Section Header レイアウト固有背景画像 (bg-layout.jpg)
  */
-async function addNonSequentialLayout(
-  basePptx: Uint8Array,
-): Promise<Uint8Array> {
+async function customizeTemplate(basePptx: Uint8Array): Promise<Uint8Array> {
   const zip = await JSZip.loadAsync(basePptx);
 
+  await addNonSequentialLayout(zip);
+  await addBackgroundImages(zip);
+
+  return new Uint8Array(
+    await zip.generateAsync({ type: "uint8array", compression: "DEFLATE" }),
+  );
+}
+
+/** 非連番 idx レイアウトを追加する */
+async function addNonSequentialLayout(zip: JSZip): Promise<void> {
   // 既存のスライドレイアウト数を数える
   let layoutCount = 0;
   zip.forEach((path) => {
@@ -106,78 +140,186 @@ async function addNonSequentialLayout(
   const newLayoutIndex = layoutCount + 1;
   const layoutPath = `ppt/slideLayouts/slideLayout${newLayoutIndex}.xml`;
 
-  // スライドマスターとの関係を設定するため、既存レイアウトの rels を参考にする
+  // 既存レイアウトの rels から slideMaster への rId を取得
   const layout1RelsPath = "ppt/slideLayouts/_rels/slideLayout1.xml.rels";
   const layout1RelsContent = await zip.file(layout1RelsPath)!.async("string");
-
-  // slideMaster への rId を取得
   const masterMatch = layout1RelsContent.match(
     /Id="(rId\d+)"[^>]*Target="[^"]*slideMaster/,
   );
   const masterRId = masterMatch ? masterMatch[1] : "rId1";
-  const masterTarget = "../slideMasters/slideMaster1.xml";
 
-  // 新しいレイアウトの rels ファイルを作成
-  const newLayoutRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-  <Relationship Id="${masterRId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="${masterTarget}"/>
-</Relationships>`;
-
+  // 新しいレイアウトの XML と rels を追加
   zip.file(layoutPath, buildNonSequentialLayoutXml());
   zip.file(
     `ppt/slideLayouts/_rels/slideLayout${newLayoutIndex}.xml.rels`,
-    newLayoutRels,
-  );
-
-  // slideMaster1.xml.rels に新しいレイアウトへの関係を追加
-  const masterRelsPath = "ppt/slideMasters/_rels/slideMaster1.xml.rels";
-  const masterRelsContent = await zip.file(masterRelsPath)!.async("string");
-
-  // 既存の最大 rId を取得して次の ID を算出
-  const rIdMatches = [...masterRelsContent.matchAll(/Id="rId(\d+)"/g)];
-  const maxRId = Math.max(...rIdMatches.map((m) => parseInt(m[1], 10)));
-  const newRId = `rId${maxRId + 1}`;
-
-  const updatedMasterRels = masterRelsContent.replace(
-    "</Relationships>",
-    `  <Relationship Id="${newRId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout${newLayoutIndex}.xml"/>
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="${masterRId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="../slideMasters/slideMaster1.xml"/>
 </Relationships>`,
   );
-  zip.file(masterRelsPath, updatedMasterRels);
 
-  // slideMaster1.xml の sldLayoutIdLst に新しいレイアウト ID を追加
-  const masterPath = "ppt/slideMasters/slideMaster1.xml";
-  const masterContent = await zip.file(masterPath)!.async("string");
-
-  // 既存の最大 sldLayoutId を取得
-  const layoutIdMatches = [...masterContent.matchAll(/id="(\d+)"/g)];
-  const maxLayoutId = Math.max(
-    ...layoutIdMatches.map((m) => parseInt(m[1], 10)),
+  // slideMaster1.xml.rels にレイアウトへの関係を追加
+  const masterRelsPath = "ppt/slideMasters/_rels/slideMaster1.xml.rels";
+  let masterRelsContent = await zip.file(masterRelsPath)!.async("string");
+  const newRId = `rId${getMaxRId(masterRelsContent) + 1}`;
+  masterRelsContent = addRelationship(
+    masterRelsContent,
+    newRId,
+    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout",
+    `../slideLayouts/slideLayout${newLayoutIndex}.xml`,
   );
-  const newLayoutId = maxLayoutId + 1;
+  zip.file(masterRelsPath, masterRelsContent);
 
-  const updatedMaster = masterContent.replace(
+  // slideMaster1.xml の sldLayoutIdLst に追加
+  const masterPath = "ppt/slideMasters/slideMaster1.xml";
+  let masterContent = await zip.file(masterPath)!.async("string");
+  const layoutIdMatches = [...masterContent.matchAll(/id="(\d+)"/g)];
+  const newLayoutId =
+    Math.max(...layoutIdMatches.map((m) => parseInt(m[1], 10))) + 1;
+  masterContent = masterContent.replace(
     "</p:sldLayoutIdLst>",
     `  <p:sldLayoutId id="${newLayoutId}" r:id="${newRId}"/>
     </p:sldLayoutIdLst>`,
   );
-  zip.file(masterPath, updatedMaster);
+  zip.file(masterPath, masterContent);
 
-  // [Content_Types].xml に新しいレイアウトのエントリを追加
-  const contentTypesContent = await zip
-    .file("[Content_Types].xml")!
-    .async("string");
-  const updatedContentTypes = contentTypesContent.replace(
+  // [Content_Types].xml にエントリを追加
+  let contentTypes = await zip.file("[Content_Types].xml")!.async("string");
+  contentTypes = contentTypes.replace(
     "</Types>",
     `  <Override PartName="/${layoutPath}" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/>
 </Types>`,
   );
-  zip.file("[Content_Types].xml", updatedContentTypes);
-
-  return new Uint8Array(
-    await zip.generateAsync({ type: "uint8array", compression: "DEFLATE" }),
-  );
+  zip.file("[Content_Types].xml", contentTypes);
 }
+
+/**
+ * 背景画像を埋め込む:
+ * - bg-master.jpg → スライドマスター背景
+ * - bg-layout.jpg → Section Header レイアウト固有背景
+ */
+async function addBackgroundImages(zip: JSZip): Promise<void> {
+  const bgMasterPath = join(FIXTURES_DIR, "bg-master.jpg");
+  const bgLayoutPath = join(FIXTURES_DIR, "bg-layout.jpg");
+
+  if (!existsSync(bgMasterPath) || !existsSync(bgLayoutPath)) {
+    console.warn(
+      "  WARN: bg-master.jpg or bg-layout.jpg not found, skipping background images",
+    );
+    return;
+  }
+
+  const bgMasterData = readFileSync(bgMasterPath);
+  const bgLayoutData = readFileSync(bgLayoutPath);
+
+  // メディアファイルを ZIP に追加
+  zip.file("ppt/media/bg-master.jpg", bgMasterData);
+  zip.file("ppt/media/bg-layout.jpg", bgLayoutData);
+
+  // [Content_Types].xml に JPEG のデフォルトエントリを追加（まだなければ）
+  let contentTypes = await zip.file("[Content_Types].xml")!.async("string");
+  if (!contentTypes.includes('Extension="jpg"')) {
+    contentTypes = contentTypes.replace(
+      "</Types>",
+      `  <Default Extension="jpg" ContentType="image/jpeg"/>
+</Types>`,
+    );
+    zip.file("[Content_Types].xml", contentTypes);
+  }
+
+  // --- スライドマスター背景 ---
+  await addMasterBackground(zip);
+
+  // --- Section Header レイアウト固有背景 ---
+  await addLayoutBackground(zip);
+}
+
+/** スライドマスターに背景画像を設定する */
+async function addMasterBackground(zip: JSZip): Promise<void> {
+  const masterPath = "ppt/slideMasters/slideMaster1.xml";
+  const masterRelsPath = "ppt/slideMasters/_rels/slideMaster1.xml.rels";
+
+  let masterRels = await zip.file(masterRelsPath)!.async("string");
+  const bgRId = `rId${getMaxRId(masterRels) + 1}`;
+  masterRels = addRelationship(
+    masterRels,
+    bgRId,
+    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image",
+    "../media/bg-master.jpg",
+  );
+  zip.file(masterRelsPath, masterRels);
+
+  // slideMaster XML に <p:bg> を追加
+  let masterXml = await zip.file(masterPath)!.async("string");
+  const bgXml = `<p:bg>
+      <p:bgPr>
+        <a:blipFill>
+          <a:blip r:embed="${bgRId}"/>
+          <a:stretch><a:fillRect/></a:stretch>
+        </a:blipFill>
+        <a:effectLst/>
+      </p:bgPr>
+    </p:bg>`;
+
+  // <p:cSld> の直後の子要素として <p:bg> を挿入
+  masterXml = masterXml.replace(/(<p:cSld[^>]*>)/, `$1\n    ${bgXml}`);
+  zip.file(masterPath, masterXml);
+}
+
+/** Section Header レイアウトに固有の背景画像を設定する */
+async function addLayoutBackground(zip: JSZip): Promise<void> {
+  // Section Header レイアウトを探す
+  const layoutFiles: string[] = [];
+  zip.forEach((path) => {
+    if (/^ppt\/slideLayouts\/slideLayout\d+\.xml$/.test(path)) {
+      layoutFiles.push(path);
+    }
+  });
+
+  let targetLayoutPath: string | undefined;
+  for (const layoutPath of layoutFiles) {
+    const xml = await zip.file(layoutPath)!.async("string");
+    if (xml.includes('name="Section Header"')) {
+      targetLayoutPath = layoutPath;
+      break;
+    }
+  }
+
+  if (!targetLayoutPath) {
+    console.warn("  WARN: Section Header layout not found");
+    return;
+  }
+
+  // レイアウトの rels にメディア参照を追加
+  const layoutFileName = targetLayoutPath.split("/").pop()!;
+  const layoutRelsPath = `ppt/slideLayouts/_rels/${layoutFileName}.rels`;
+  let layoutRels = await zip.file(layoutRelsPath)!.async("string");
+  const bgRId = `rId${getMaxRId(layoutRels) + 1}`;
+  layoutRels = addRelationship(
+    layoutRels,
+    bgRId,
+    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image",
+    "../media/bg-layout.jpg",
+  );
+  zip.file(layoutRelsPath, layoutRels);
+
+  // レイアウト XML に <p:bg> を追加
+  let layoutXml = await zip.file(targetLayoutPath)!.async("string");
+  const bgXml = `<p:bg>
+      <p:bgPr>
+        <a:blipFill>
+          <a:blip r:embed="${bgRId}"/>
+          <a:stretch><a:fillRect/></a:stretch>
+        </a:blipFill>
+        <a:effectLst/>
+      </p:bgPr>
+    </p:bg>`;
+
+  layoutXml = layoutXml.replace(/(<p:cSld[^>]*>)/, `$1\n    ${bgXml}`);
+  zip.file(targetLayoutPath, layoutXml);
+}
+
+// --- メイン処理 ---
 
 async function main() {
   console.log("Initializing python-pptx-wasm...");
@@ -191,7 +333,7 @@ async function main() {
   const pyodide = await loadPyodide({ lockFileURL });
   await init(pyodide);
 
-  mkdirSync(OUTPUT_DIR, { recursive: true });
+  mkdirSync(FIXTURES_DIR, { recursive: true });
 
   // デフォルトの Presentation() を保存（標準レイアウト群を含む）
   console.log("Generating default template...");
@@ -199,11 +341,11 @@ async function main() {
   const basePptx = prs.save();
   prs.end();
 
-  // 非連番プレースホルダー idx レイアウトを追加
-  console.log("Adding non-sequential placeholder idx layout...");
-  const templatePptx = await addNonSequentialLayout(basePptx);
+  // カスタマイズ（非連番レイアウト + 背景画像）
+  console.log("Customizing template...");
+  const templatePptx = await customizeTemplate(basePptx);
 
-  const outPath = join(OUTPUT_DIR, "test-template.pptx");
+  const outPath = join(FIXTURES_DIR, "test-template.pptx");
   writeFileSync(outPath, templatePptx);
   console.log(`Generated: ${outPath} (${templatePptx.length} bytes)`);
 
@@ -217,6 +359,22 @@ async function main() {
       .map((p) => `idx=${p.idx}(${p.type})`)
       .join(", ");
     console.log(`  - ${layout.name}: [${phDesc}]`);
+  }
+
+  // 背景画像の検証
+  console.log("\nVerifying background images:");
+  const { extractBackgrounds } =
+    await import("../../src/core/slide-master-extractor.js");
+  const bgResult = await extractBackgrounds(templateData);
+  for (const master of bgResult.masters) {
+    console.log(
+      `  - Master "${master.masterName}": ${master.contentType} (${master.data.length} bytes)`,
+    );
+  }
+  for (const layout of bgResult.layouts) {
+    console.log(
+      `  - Layout "${layout.layoutName}": ${layout.contentType} (${layout.data.length} bytes)`,
+    );
   }
 
   console.log("\nTemplate generation complete!");

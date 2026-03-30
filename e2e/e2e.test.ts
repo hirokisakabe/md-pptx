@@ -9,6 +9,7 @@ import { parseMarkdown } from "../src/core/parser.js";
 import { readTemplate } from "../src/core/template-reader.js";
 import { mapPresentation } from "../src/core/placeholder-mapper.js";
 import { generatePptx } from "../src/core/pptx-generator.js";
+import { extractBackgrounds } from "../src/core/slide-master-extractor.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const FIXTURES = join(__dirname, "fixtures");
@@ -169,6 +170,39 @@ describe("E2E: テンプレートPPTXを使用した生成", () => {
     assertValidPptx(pptxData);
     const slideCount = await countSlides(pptxData);
     expect(slideCount).toBe(3);
+  });
+});
+
+describe("E2E: テンプレートの背景画像抽出", () => {
+  it("スライドマスター背景画像を抽出できる", async () => {
+    const templateData = readFixtureBinary("test-template.pptx");
+    const result = await extractBackgrounds(templateData);
+
+    expect(result.masters).toHaveLength(1);
+    expect(result.masters[0].contentType).toBe("image/jpeg");
+    expect(result.masters[0].data.length).toBeGreaterThan(0);
+    expect(result.masters[0].dataUrl).toMatch(/^data:image\/jpeg;base64,/);
+  });
+
+  it("レイアウト固有の背景画像を抽出できる", async () => {
+    const templateData = readFixtureBinary("test-template.pptx");
+    const result = await extractBackgrounds(templateData);
+
+    expect(result.layouts).toHaveLength(1);
+    expect(result.layouts[0].layoutName).toBe("Section Header");
+    expect(result.layouts[0].contentType).toBe("image/jpeg");
+    expect(result.layouts[0].data.length).toBeGreaterThan(0);
+  });
+
+  it("テンプレートから生成したPPTXにも背景画像が引き継がれる", async () => {
+    const templateData = readFixtureBinary("test-template.pptx");
+    const md = "# テスト\n\nテスト本文";
+    const pptxData = buildPptx(md, { templateData });
+
+    const result = await extractBackgrounds(pptxData);
+    // 生成後の PPTX にもマスター背景が保持されている
+    expect(result.masters.length).toBeGreaterThanOrEqual(1);
+    expect(result.masters[0].contentType).toBe("image/jpeg");
   });
 });
 
