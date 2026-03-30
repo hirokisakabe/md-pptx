@@ -312,6 +312,16 @@ describe("generatePptx", () => {
       expect(mockPrs._sldIdLst.sldId_lst).toHaveLength(0);
     });
 
+    it("テンプレート指定時に既存スライドを3枚以上でも全て削除する", () => {
+      mockPrs = createMockPresentation(["Blank"], undefined, 5);
+      const templateData = new Uint8Array([1, 2, 3]);
+      const parseResult: ParseResult = { frontMatter: {}, slides: [] };
+      generatePptx(parseResult, [], { templateData });
+
+      expect(mockPrs._sldIdLst.remove).toHaveBeenCalledTimes(5);
+      expect(mockPrs._sldIdLst.sldId_lst).toHaveLength(0);
+    });
+
     it("テンプレートなしの場合は既存スライド削除を行わない", () => {
       mockPrs = createMockPresentation(["Blank"]);
       const parseResult: ParseResult = { frontMatter: {}, slides: [] };

@@ -36,9 +36,9 @@ export function generatePptx(
     // テンプレートの既存スライドを削除
     if (options?.templateData) {
       const sldIdLst = prs.slides._element;
-      const existingSlides = [...sldIdLst.sldId_lst];
-      for (const sldId of existingSlides) {
-        sldIdLst.remove(sldId);
+      const count = sldIdLst.sldId_lst.length;
+      for (let i = 0; i < count; i++) {
+        sldIdLst.remove(sldIdLst.sldId_lst[0]);
       }
     }
 
