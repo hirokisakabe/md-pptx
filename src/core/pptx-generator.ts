@@ -33,6 +33,15 @@ export function generatePptx(
       prs.slide_height = Emu(6858000); // 7.5 inches
     }
 
+    // テンプレートの既存スライドを削除
+    if (options?.templateData) {
+      const sldIdLst = prs.slides._element;
+      const existingSlides = [...sldIdLst.sldId_lst];
+      for (const sldId of existingSlides) {
+        sldIdLst.remove(sldId);
+      }
+    }
+
     if (prs.slide_layouts.length === 0) {
       throw new Error("No slide layouts found in template");
     }
