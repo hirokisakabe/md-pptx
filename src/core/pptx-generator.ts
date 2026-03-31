@@ -537,8 +537,11 @@ function injectImage(
  */
 function estimateTextContentHeight(content: ContentElement[]): number {
   const defaultFontPt = 18;
-  const lineHeightMultiplier = 1.5;
-  let totalHeight = 0;
+  // 段落間スペースやバレットポイントの余白を含めた行高さ倍率
+  const lineHeightMultiplier = 2.0;
+  // テキストフレームの内部上下マージン
+  const textFrameMargin = Number(Inches(0.1));
+  let totalHeight = textFrameMargin;
 
   for (const element of content) {
     switch (element.type) {
@@ -565,7 +568,7 @@ function estimateTextContentHeight(content: ContentElement[]): number {
   }
 
   // テキストと後続要素の間に適度な余白を確保
-  totalHeight += Number(Pt(8));
+  totalHeight += Number(Pt(16));
 
   return totalHeight;
 }
