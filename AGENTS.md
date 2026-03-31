@@ -2,7 +2,7 @@
 
 ## プロジェクト概要
 
-md-pptx は Markdown とテンプレート PPTX から編集可能な PowerPoint ファイルを生成するツール。コアライブラリ・CLI・VS Code 拡張を単一プロジェクト（`src/`）で構成。
+md-pptx は Markdown とテンプレート PPTX から編集可能な PowerPoint ファイルを生成するツール。コアライブラリ・VS Code 拡張を単一プロジェクト（`src/`）で構成。
 
 ## コマンド
 
@@ -47,10 +47,9 @@ Markdown + Template PPTX
 
 ### ビルド構成
 
-tsup でコアライブラリと CLI の 2 エントリポイントをビルド（ESM のみ）:
+tsup でコアライブラリをビルド（ESM のみ）:
 
 - `src/index.ts` → ライブラリ（外部パッケージから利用）
-- `src/cli.ts` → CLI コマンド `md-pptx build` / `md-pptx inspect`
 
 esbuild で VS Code 拡張をビルド:
 
@@ -62,7 +61,6 @@ esbuild で VS Code 拡張をビルド:
 - **markdown-it**: Markdown パーサー
 - **jszip**: PPTX（ZIP 形式）の読み書き、スライドマスター背景画像の抽出
 - **pptx-glimpse**: PPTX → SVG 変換（VS Code 拡張のプレビュー表示用）
-- **commander**: CLI 引数パーサー
 
 ### プレースホルダーマッピングロジック
 
