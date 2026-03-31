@@ -74,7 +74,7 @@ title: サンプルプレゼンテーション
 | `![](image.png)`         | picture プレースホルダにマッピング               |
 | `<!-- コメント -->`      | プレゼンターノート（ディレクティブ以外）         |
 
-詳細は [Markdown 記法仕様](docs/markdown-syntax.md) を参照してください。
+詳細は [Markdown 記法仕様](docs/guide/syntax.md) を参照してください。
 
 ## CLI
 

@@ -5,3 +5,5 @@ vrt/libreoffice/fixtures/
 vrt/libreoffice/actual/
 vrt/libreoffice/diffs/
 .vscode-test/
+docs/.vitepress/dist/
+docs/.vitepress/cache/
