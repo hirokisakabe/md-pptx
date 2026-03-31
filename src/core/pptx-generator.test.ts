@@ -23,6 +23,9 @@ function createMockRun() {
       size: undefined as unknown,
       name: undefined as string | undefined,
       underline: undefined as boolean | undefined,
+      color: {
+        rgb: undefined as [number, number, number] | undefined,
+      },
       _rPr: {
         _attributes: {} as Record<string, string>,
         set(key: string, value: string) {
@@ -748,7 +751,7 @@ describe("generatePptx", () => {
       expect(p.runs[1].font._rPr._attributes["strike"]).toBe("sngStrike");
     });
 
-    it("codeフォーマットでCourier Newフォントを適用する", () => {
+    it("codeフォーマットでCourier Newフォントとカラーを適用する", () => {
       const bodyPh = createMockPlaceholder(1, "body");
       mockPrs = createMockPresentation(["Title and Content"], () => [bodyPh]);
       const parseResult: ParseResult = {
@@ -776,6 +779,7 @@ describe("generatePptx", () => {
 
       const run = bodyPh.text_frame.paragraphs[0].runs[0];
       expect(run.font.name).toBe("Courier New");
+      expect(run.font.color.rgb).toEqual([0xc7, 0x25, 0x4e]);
     });
 
     it("linkフォーマットでハイパーリンクを設定する", () => {

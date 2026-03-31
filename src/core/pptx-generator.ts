@@ -520,8 +520,9 @@ function writeRuns(paragraph: any, runs: TextRun[]) {
     if (textRun.code) {
       try {
         run.font.name = "Courier New";
+        run.font.color.rgb = [0xc7, 0x25, 0x4e];
       } catch {
-        // font name may not be settable
+        // font properties may not be settable
       }
     }
   }
