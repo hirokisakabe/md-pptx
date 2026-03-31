@@ -458,6 +458,78 @@ describe("generatePptx", () => {
       expect(run.text).toBe("テストタイトル");
     });
 
+    it("タイトルプレースホルダの見出しはフォントスタイルをプレースホルダのデフォルトに委任する", () => {
+      const titlePh = createMockPlaceholder(0, "title");
+      mockPrs = createMockPresentation(["Title and Content"], () => [titlePh]);
+      const parseResult: ParseResult = {
+        frontMatter: {},
+        slides: [slideData([heading(1, "タイトル")])],
+      };
+      const mappings = [
+        mapping("Title and Content", [
+          {
+            placeholderIdx: 0,
+            placeholderType: "title",
+            content: [heading(1, "タイトル")],
+          },
+        ]),
+      ];
+
+      generatePptx(parseResult, mappings);
+
+      const p = titlePh.text_frame.paragraphs[0];
+      expect(p.font.bold).toBeUndefined();
+      expect(p.font.size).toBeUndefined();
+    });
+
+    it("bodyプレースホルダの見出しはフォントサイズとboldを設定する", () => {
+      const bodyPh = createMockPlaceholder(1, "body");
+      mockPrs = createMockPresentation(["Title and Content"], () => [bodyPh]);
+      const parseResult: ParseResult = {
+        frontMatter: {},
+        slides: [slideData([heading(3, "見出し3")])],
+      };
+      const mappings = [
+        mapping("Title and Content", [
+          {
+            placeholderIdx: 1,
+            placeholderType: "body",
+            content: [heading(3, "見出し3")],
+          },
+        ]),
+      ];
+
+      generatePptx(parseResult, mappings);
+
+      const p = bodyPh.text_frame.paragraphs[0];
+      expect(p.font.bold).toBe(true);
+      expect(p.font.size).toBeDefined();
+    });
+
+    it("subtitleプレースホルダの見出しはフォントサイズとboldを設定する", () => {
+      const subtitlePh = createMockPlaceholder(0, "subtitle");
+      mockPrs = createMockPresentation(["Title Slide"], () => [subtitlePh]);
+      const parseResult: ParseResult = {
+        frontMatter: {},
+        slides: [slideData([heading(1, "サブタイトル")])],
+      };
+      const mappings = [
+        mapping("Title Slide", [
+          {
+            placeholderIdx: 0,
+            placeholderType: "subtitle",
+            content: [heading(1, "サブタイトル")],
+          },
+        ]),
+      ];
+
+      generatePptx(parseResult, mappings);
+
+      const p = subtitlePh.text_frame.paragraphs[0];
+      expect(p.font.bold).toBe(true);
+      expect(p.font.size).toBeDefined();
+    });
+
     it("bodyプレースホルダに複数コンテンツを注入する", () => {
       const bodyPh = createMockPlaceholder(1, "body");
       mockPrs = createMockPresentation(["Title and Content"], () => [bodyPh]);
