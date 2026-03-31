@@ -37,6 +37,9 @@ async function initialize(globalStorageUri: vscode.Uri): Promise<void> {
 
   const lockFileURL = path.join(recipesDir, "pyodide-lock.json");
   const { loadPyodide } = await import("pyodide");
+  // VS Code Extension Host は process.stdout を JSON-RPC 通信に使用するため、
+  // Pyodide (Emscripten) が fd 1/2 に書き込むとストリームが破損する。
+  // console.log/error にリダイレクトしてデバッグコンソールへ逃がす。
   const pyodide = await loadPyodide({
     lockFileURL,
     stdout: (text: string) => console.log(text),
