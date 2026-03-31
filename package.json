@@ -97,7 +97,10 @@
     "format:check": "prettier --check .",
     "knip": "knip",
     "package": "vsce package",
-    "version": "changeset version && npm install --package-lock-only"
+    "version": "changeset version && npm install --package-lock-only",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs"
   },
   "keywords": [],
   "license": "MIT",
@@ -129,6 +132,7 @@
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.57.2",
+    "vitepress": "^1.6.4",
     "vitest": "^4.1.2"
   }
 }

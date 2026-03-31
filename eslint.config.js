@@ -25,6 +25,7 @@ export default tseslint.config(
       "vrt/**/*.ts",
       "src/extension/e2e/**/*.ts",
       ".vscode-test.mjs",
+      "docs/.vitepress/config.ts",
     ],
     ...tseslint.configs.disableTypeChecked,
   },
@@ -45,6 +46,8 @@ export default tseslint.config(
       "esbuild.mjs",
       ".vscode-test/",
       "src/extension/e2e/esbuild.mjs",
+      "docs/.vitepress/dist/",
+      "docs/.vitepress/cache/",
     ],
   },
 );

@@ -119,9 +119,9 @@ PowerPoint でレイアウトを編集する際、プレースホルダの type 
 
 md-pptx は基本的にプレースホルダのデフォルトスタイル（フォント種類、色など）を継承します。テンプレートのプレースホルダに企業フォントやブランドカラーを設定しておけば、生成される PowerPoint にもそのスタイルが反映されます。
 
-詳細なスタイル適用ルールについては、[Markdown → PowerPoint マッピング仕様](mapping-spec.md)を参照してください。
+詳細なスタイル適用ルールについては、[Markdown → PowerPoint マッピング仕様](mapping.md)を参照してください。
 
 ## 関連ドキュメント
 
-- [Markdown 記法仕様](markdown-syntax.md) — サポートされる Markdown 記法の詳細
-- [Markdown → PowerPoint マッピング仕様](mapping-spec.md) — Markdown 要素がどのようにプレースホルダにマッピングされるかの仕様
+- [Markdown 記法仕様](syntax.md) — サポートされる Markdown 記法の詳細
+- [Markdown → PowerPoint マッピング仕様](mapping.md) — Markdown 要素がどのようにプレースホルダにマッピングされるかの仕様
