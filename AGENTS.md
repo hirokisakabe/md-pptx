@@ -125,13 +125,14 @@ changesets によるバージョン管理と vsce publish による VS Code Mark
 
 ### changeset の作成
 
-リリース対象の変更（機能追加・バグ修正など）を含む PR では、コミット前に `npx changeset` で change file を作成する。
+成果物に影響する変更を含む PR では、コミット前に `npx changeset` で change file を作成する。
 
-- patch: バグ修正、軽微な変更
+- patch: バグ修正、軽微な変更、依存パッケージの更新
 - minor: 新機能、機能改善
 - major: 破壊的変更
+- 空の changeset（`npx changeset --empty`）: 依存パッケージの更新など、リリースはしたいがリリースノートに記載不要な変更
 
-ドキュメントのみの変更や CI 設定変更など、リリースに含めない変更では不要。
+ドキュメントのみの変更や CI 設定変更など、成果物に影響しない変更では不要。
 
 ### フロー
 
