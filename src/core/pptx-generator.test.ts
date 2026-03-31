@@ -1128,6 +1128,130 @@ describe("generatePptx", () => {
     });
   });
 
+  describe("テキストと特殊要素が混在するスライドのレイアウト", () => {
+    it("テキストとコードブロックが混在する場合、bodyプレースホルダの高さがテキスト描画高さにリサイズされる", () => {
+      const bodyPh = createMockPlaceholder(1, "body");
+      // bodyプレースホルダにレイアウト情報を設定（実際のテンプレート相当）
+      Object.assign(bodyPh, {
+        top: 0.5 * 914400, // 0.5 inches in EMU
+        left: 0.5 * 914400,
+        width: 9 * 914400,
+        height: 4 * 914400, // 4 inches（大きな固定高さ）
+      });
+      mockPrs = createMockPresentation(["Title and Content"], () => [bodyPh]);
+
+      const parseResult: ParseResult = {
+        frontMatter: {},
+        slides: [
+          slideData([
+            paragraph("本文テキスト"),
+            codeBlock('def greet(name):\n    print(f"Hello, {name}!")', "python"),
+            paragraph("追加のテキスト"),
+          ]),
+        ],
+      };
+      const mappings = [
+        mapping("Title and Content", [
+          {
+            placeholderIdx: 1,
+            placeholderType: "body",
+            content: [
+              paragraph("本文テキスト"),
+              codeBlock(
+                'def greet(name):\n    print(f"Hello, {name}!")',
+                "python",
+              ),
+              paragraph("追加のテキスト"),
+            ],
+          },
+        ]),
+      ];
+
+      generatePptx(parseResult, mappings);
+
+      // bodyプレースホルダの高さが元の4インチではなく、テキスト推定高さにリサイズされている
+      const originalHeight = 4 * 914400;
+      expect(bodyPh.height).toBeLessThan(originalHeight);
+      // テキストボックス（コードブロック）が追加されている
+      const slide = mockPrs._slides[0];
+      expect(slide.shapes.add_textbox).toHaveBeenCalledTimes(1);
+      // コードブロックの top 位置がリサイズ後の高さ基準で配置されている
+      const addTextboxCall = slide.shapes.add_textbox.mock.calls[0];
+      const codeBlockTop = addTextboxCall[1]; // 第2引数が top (Emu)
+      const expectedTop = bodyPh.top + bodyPh.height; // リサイズ後の top + height
+      expect(codeBlockTop).toBe(expectedTop);
+    });
+
+    it("テキストとテーブルが混在する場合、bodyプレースホルダの高さがリサイズされる", () => {
+      const bodyPh = createMockPlaceholder(1, "body");
+      Object.assign(bodyPh, {
+        top: 0.5 * 914400,
+        left: 0.5 * 914400,
+        width: 9 * 914400,
+        height: 4 * 914400,
+      });
+      mockPrs = createMockPresentation(["Title and Content"], () => [bodyPh]);
+
+      const tbl = table(["Col1", "Col2"], [["A", "B"]]);
+      const parseResult: ParseResult = {
+        frontMatter: {},
+        slides: [slideData([paragraph("テキスト"), tbl])],
+      };
+      const mappings = [
+        mapping("Title and Content", [
+          {
+            placeholderIdx: 1,
+            placeholderType: "body",
+            content: [paragraph("テキスト"), tbl],
+          },
+        ]),
+      ];
+
+      generatePptx(parseResult, mappings);
+
+      const originalHeight = 4 * 914400;
+      expect(bodyPh.height).toBeLessThan(originalHeight);
+      const slide = mockPrs._slides[0];
+      expect(slide.shapes.add_table).toHaveBeenCalledTimes(1);
+      // テーブルの top 位置がリサイズ後の高さ基準で配置されている
+      const addTableCall = slide.shapes.add_table.mock.calls[0];
+      const tableTop = addTableCall[3]; // add_table(rows, cols, left, top, width, height)
+      const expectedTop = bodyPh.top + bodyPh.height;
+      expect(tableTop).toBe(expectedTop);
+    });
+
+    it("特殊要素のみの場合、bodyプレースホルダの高さはリサイズされない", () => {
+      const bodyPh = createMockPlaceholder(1, "body");
+      const originalHeight = 4 * 914400;
+      Object.assign(bodyPh, {
+        top: 0.5 * 914400,
+        left: 0.5 * 914400,
+        width: 9 * 914400,
+        height: originalHeight,
+      });
+      mockPrs = createMockPresentation(["Title and Content"], () => [bodyPh]);
+
+      const parseResult: ParseResult = {
+        frontMatter: {},
+        slides: [slideData([codeBlock("const x = 1;")])],
+      };
+      const mappings = [
+        mapping("Title and Content", [
+          {
+            placeholderIdx: 1,
+            placeholderType: "body",
+            content: [codeBlock("const x = 1;")],
+          },
+        ]),
+      ];
+
+      generatePptx(parseResult, mappings);
+
+      // 特殊要素のみの場合、高さはリサイズされない
+      expect(bodyPh.height).toBe(originalHeight);
+    });
+  });
+
   describe("複合シナリオ", () => {
     it("複数スライド・複数プレースホルダの注入を正しく行う", () => {
       const slide1Phs = [

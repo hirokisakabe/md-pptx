@@ -62,6 +62,7 @@ export function generatePptx(
       const images: { element: ImageElement; data: Uint8Array }[] = [];
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let bodyPlaceholder: any = undefined;
+      let bodyNonSpecialContent: ContentElement[] = [];
 
       for (const assignment of mapping.assignments) {
         const ph = findPlaceholderByIdx(slide, assignment.placeholderIdx);
@@ -94,10 +95,32 @@ export function generatePptx(
           }
           if (assignment.placeholderType === "body") {
             bodyPlaceholder = ph;
+            bodyNonSpecialContent = nonSpecialContent;
             // body に非コードブロック・非テーブルコンテンツがあるかどうかを記録
             (bodyPlaceholder as Record<string, boolean>)._hasBodyTextContent =
               nonSpecialContent.length > 0;
           }
+        }
+      }
+
+      // テキストと特殊要素が混在する場合、bodyプレースホルダの高さを
+      // 実際のテキスト描画高さに縮小して、特殊要素との間に巨大なギャップが生じないようにする
+      const hasSpecialElements =
+        codeBlocks.length > 0 || tables.length > 0 || images.length > 0;
+      if (
+        bodyPlaceholder &&
+        bodyNonSpecialContent.length > 0 &&
+        hasSpecialElements
+      ) {
+        const estimatedHeight = estimateTextContentHeight(bodyNonSpecialContent);
+        try {
+          // 推定高さが元の高さを超えないようクランプ（拡大防止）
+          const currentHeight = Number(bodyPlaceholder.height);
+          bodyPlaceholder.height = Emu(
+            Math.min(currentHeight, estimatedHeight),
+          );
+        } catch {
+          // height が設定不可の場合はフォールバック（既存動作）
         }
       }
 
@@ -507,6 +530,53 @@ function injectImage(
   if (typeof placeholder.insert_picture === "function") {
     placeholder.insert_picture(imageData);
   }
+}
+
+/**
+ * テキストコンテンツの推定描画高さを EMU で返す。
+ * フォントサイズと行数から概算し、bodyプレースホルダの高さリサイズに使用する。
+ */
+function estimateTextContentHeight(content: ContentElement[]): number {
+  const defaultFontPt = 18;
+  const lineHeightMultiplier = 1.5;
+  let totalHeight = 0;
+
+  for (const element of content) {
+    switch (element.type) {
+      case "heading": {
+        const fontSize = headingFontSize(element.level);
+        const lineCount = countTextLines(element.runs);
+        totalHeight +=
+          Number(Pt(fontSize)) * lineHeightMultiplier * lineCount;
+        break;
+      }
+      case "paragraph": {
+        const lineCount = countTextLines(element.runs);
+        totalHeight +=
+          Number(Pt(defaultFontPt)) * lineHeightMultiplier * lineCount;
+        break;
+      }
+      case "list": {
+        totalHeight +=
+          element.items.length *
+          Number(Pt(defaultFontPt)) *
+          lineHeightMultiplier;
+        break;
+      }
+    }
+  }
+
+  // テキストと後続要素の間に適度な余白を確保
+  totalHeight += Number(Pt(8));
+
+  return totalHeight;
+}
+
+/** テキストランの結合テキストに含まれる改行を数え、最低1行を返す */
+function countTextLines(runs: TextRun[]): number {
+  const text = runs.map((r) => r.text).join("");
+  const newlines = (text.match(/\n/g) || []).length;
+  return Math.max(1, newlines + 1);
 }
 
 function headingFontSize(level: number): number {
