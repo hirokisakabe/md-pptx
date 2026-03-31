@@ -48,6 +48,9 @@ jobs:
       - name: Build Extension
         run: npm run build:extension
 
+      - name: VS Code Extension E2E Test
+        run: xvfb-run -a npm run test:vscode-e2e
+
   libreoffice-vrt:
     runs-on: ubuntu-latest
 

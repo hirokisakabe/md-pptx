@@ -23,6 +23,8 @@ export default tseslint.config(
       "vitest.config.*.ts",
       "e2e/**/*.ts",
       "vrt/**/*.ts",
+      "src/extension/e2e/**/*.ts",
+      ".vscode-test.mjs",
     ],
     ...tseslint.configs.disableTypeChecked,
   },
@@ -37,6 +39,12 @@ export default tseslint.config(
     },
   },
   {
-    ignores: ["dist/", "node_modules/", "esbuild.mjs"],
+    ignores: [
+      "dist/",
+      "node_modules/",
+      "esbuild.mjs",
+      ".vscode-test/",
+      "src/extension/e2e/esbuild.mjs",
+    ],
   },
 );
