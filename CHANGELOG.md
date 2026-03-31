@@ -1,5 +1,11 @@
 # md-pptx
 
+## 0.6.2
+
+### Patch Changes
+
+- 46cc421: loadPyodide に stdout/stderr コールバックを設定し、バイナリデータが VS Code の JSON-RPC ストリームに漏出するのを防止
+
 ## 0.6.1
 
 ### Patch Changes
