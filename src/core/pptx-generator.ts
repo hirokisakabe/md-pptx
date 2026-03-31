@@ -62,6 +62,7 @@ export function generatePptx(
       const images: { element: ImageElement; data: Uint8Array }[] = [];
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let bodyPlaceholder: any = undefined;
+      let bodyNonSpecialContent: ContentElement[] = [];
 
       for (const assignment of mapping.assignments) {
         const ph = findPlaceholderByIdx(slide, assignment.placeholderIdx);
@@ -94,11 +95,25 @@ export function generatePptx(
           }
           if (assignment.placeholderType === "body") {
             bodyPlaceholder = ph;
+            bodyNonSpecialContent = nonSpecialContent;
             // body に非コードブロック・非テーブルコンテンツがあるかどうかを記録
             (bodyPlaceholder as Record<string, boolean>)._hasBodyTextContent =
               nonSpecialContent.length > 0;
           }
         }
+      }
+
+      // テキストと特殊要素が混在する場合、テキストの推定描画高さを記録して
+      // 特殊要素の配置位置を計算する際に使用する（プレースホルダの固定高さの代わりに）
+      const hasSpecialElements =
+        codeBlocks.length > 0 || tables.length > 0 || images.length > 0;
+      if (
+        bodyPlaceholder &&
+        bodyNonSpecialContent.length > 0 &&
+        hasSpecialElements
+      ) {
+        (bodyPlaceholder as Record<string, number>)._bodyTextHeight =
+          estimateTextContentHeight(bodyNonSpecialContent);
       }
 
       // テーブルとコードブロックを body プレースホルダ基準で縦に配置
@@ -284,8 +299,15 @@ function resolveShapePosition(
       const hasBodyTextContent =
         (bodyPlaceholder as Record<string, boolean>)._hasBodyTextContent ===
         true;
+      // 推定テキスト高さがある場合はそれを使い、なければプレースホルダの固定高さを使う
+      const bodyTextHeight = (bodyPlaceholder as Record<string, number>)
+        ._bodyTextHeight;
+      const heightForOffset =
+        bodyTextHeight !== undefined
+          ? Math.min(bodyTextHeight, Number(bodyPlaceholder.height))
+          : Number(bodyPlaceholder.height);
       const top = hasBodyTextContent
-        ? Number(bodyPlaceholder.top) + Number(bodyPlaceholder.height)
+        ? Number(bodyPlaceholder.top) + heightForOffset
         : Number(bodyPlaceholder.top);
       return { left, width, top };
     } catch {
@@ -507,6 +529,55 @@ function injectImage(
   if (typeof placeholder.insert_picture === "function") {
     placeholder.insert_picture(imageData);
   }
+}
+
+/**
+ * テキストコンテンツの推定描画高さを EMU で返す。
+ * フォントサイズと行数から概算し、bodyプレースホルダの高さリサイズに使用する。
+ */
+function estimateTextContentHeight(content: ContentElement[]): number {
+  const defaultFontPt = 18;
+  // 段落間スペースやバレットポイントの余白を含めた行高さ倍率
+  const lineHeightMultiplier = 2.0;
+  // テキストフレームの内部上下マージン
+  const textFrameMargin = Number(Inches(0.1));
+  let totalHeight = textFrameMargin;
+
+  for (const element of content) {
+    switch (element.type) {
+      case "heading": {
+        const fontSize = headingFontSize(element.level);
+        const lineCount = countTextLines(element.runs);
+        totalHeight += Number(Pt(fontSize)) * lineHeightMultiplier * lineCount;
+        break;
+      }
+      case "paragraph": {
+        const lineCount = countTextLines(element.runs);
+        totalHeight +=
+          Number(Pt(defaultFontPt)) * lineHeightMultiplier * lineCount;
+        break;
+      }
+      case "list": {
+        totalHeight +=
+          element.items.length *
+          Number(Pt(defaultFontPt)) *
+          lineHeightMultiplier;
+        break;
+      }
+    }
+  }
+
+  // テキストと後続要素の間に適度な余白を確保
+  totalHeight += Number(Pt(16));
+
+  return totalHeight;
+}
+
+/** テキストランの結合テキストに含まれる改行を数え、最低1行を返す */
+function countTextLines(runs: TextRun[]): number {
+  const text = runs.map((r) => r.text).join("");
+  const newlines = (text.match(/\n/g) || []).length;
+  return Math.max(1, newlines + 1);
 }
 
 function headingFontSize(level: number): number {

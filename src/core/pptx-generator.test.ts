@@ -1128,6 +1128,137 @@ describe("generatePptx", () => {
     });
   });
 
+  describe("テキストと特殊要素が混在するスライドのレイアウト", () => {
+    it("テキストとコードブロックが混在する場合、コードブロックが推定テキスト高さの直後に配置される", () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const bodyPh: any = createMockPlaceholder(1, "body");
+      bodyPh.top = 0.5 * 914400; // 0.5 inches in EMU
+      bodyPh.left = 0.5 * 914400;
+      bodyPh.width = 9 * 914400;
+      bodyPh.height = 4 * 914400; // 4 inches（大きな固定高さ）
+      mockPrs = createMockPresentation(["Title and Content"], () => [bodyPh]);
+
+      const parseResult: ParseResult = {
+        frontMatter: {},
+        slides: [
+          slideData([
+            paragraph("本文テキスト"),
+            codeBlock(
+              'def greet(name):\n    print(f"Hello, {name}!")',
+              "python",
+            ),
+            paragraph("追加のテキスト"),
+          ]),
+        ],
+      };
+      const mappings = [
+        mapping("Title and Content", [
+          {
+            placeholderIdx: 1,
+            placeholderType: "body",
+            content: [
+              paragraph("本文テキスト"),
+              codeBlock(
+                'def greet(name):\n    print(f"Hello, {name}!")',
+                "python",
+              ),
+              paragraph("追加のテキスト"),
+            ],
+          },
+        ]),
+      ];
+
+      generatePptx(parseResult, mappings);
+
+      // プレースホルダの高さは変更されない（リサイズしない）
+      expect(bodyPh.height).toBe(4 * 914400);
+      // コードブロックが追加されている
+      const slide = mockPrs._slides[0];
+      expect(slide.shapes.add_textbox).toHaveBeenCalledTimes(1);
+      // コードブロックの top 位置がプレースホルダ固定高さではなく推定テキスト高さ基準
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const addTextboxCall = (slide.shapes.add_textbox as any).mock.calls[0];
+      const codeBlockTop = Number(addTextboxCall[1]); // 第2引数が top (Emu)
+      // top がプレースホルダ底辺(top + height = 4.5 inches)より上に配置される
+      const placeholderBottom = Number(bodyPh.top) + Number(bodyPh.height);
+      expect(codeBlockTop).toBeLessThan(placeholderBottom);
+      // top がプレースホルダ上端より下にある
+      expect(codeBlockTop).toBeGreaterThan(Number(bodyPh.top));
+    });
+
+    it("テキストとテーブルが混在する場合、テーブルが推定テキスト高さの直後に配置される", () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const bodyPh: any = createMockPlaceholder(1, "body");
+      bodyPh.top = 0.5 * 914400;
+      bodyPh.left = 0.5 * 914400;
+      bodyPh.width = 9 * 914400;
+      bodyPh.height = 4 * 914400;
+      mockPrs = createMockPresentation(["Title and Content"], () => [bodyPh]);
+
+      const tbl = table(["Col1", "Col2"], [["A", "B"]]);
+      const parseResult: ParseResult = {
+        frontMatter: {},
+        slides: [slideData([paragraph("テキスト"), tbl])],
+      };
+      const mappings = [
+        mapping("Title and Content", [
+          {
+            placeholderIdx: 1,
+            placeholderType: "body",
+            content: [paragraph("テキスト"), tbl],
+          },
+        ]),
+      ];
+
+      generatePptx(parseResult, mappings);
+
+      // プレースホルダの高さは変更されない
+      expect(bodyPh.height).toBe(4 * 914400);
+      const slide = mockPrs._slides[0];
+      expect(slide.shapes.add_table).toHaveBeenCalledTimes(1);
+      // テーブルの top 位置がプレースホルダ底辺より上に配置される
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const addTableCall = (slide.shapes.add_table as any).mock.calls[0];
+      const tableTop = Number(addTableCall[3]); // add_table(rows, cols, left, top, width, height)
+      const placeholderBottom = Number(bodyPh.top) + Number(bodyPh.height);
+      expect(tableTop).toBeLessThan(placeholderBottom);
+      expect(tableTop).toBeGreaterThan(Number(bodyPh.top));
+    });
+
+    it("特殊要素のみの場合、プレースホルダの上端から配置される", () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const bodyPh: any = createMockPlaceholder(1, "body");
+      bodyPh.top = 0.5 * 914400;
+      bodyPh.left = 0.5 * 914400;
+      bodyPh.width = 9 * 914400;
+      bodyPh.height = 4 * 914400;
+      mockPrs = createMockPresentation(["Title and Content"], () => [bodyPh]);
+
+      const parseResult: ParseResult = {
+        frontMatter: {},
+        slides: [slideData([codeBlock("const x = 1;")])],
+      };
+      const mappings = [
+        mapping("Title and Content", [
+          {
+            placeholderIdx: 1,
+            placeholderType: "body",
+            content: [codeBlock("const x = 1;")],
+          },
+        ]),
+      ];
+
+      generatePptx(parseResult, mappings);
+
+      // 特殊要素のみの場合、プレースホルダ上端から配置される
+      const slide = mockPrs._slides[0];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const addTextboxCall = (slide.shapes.add_textbox as any).mock.calls[0];
+      const codeBlockTop = addTextboxCall[1];
+      expect(codeBlockTop).toBe(bodyPh.top);
+    });
+  });
+
   describe("複合シナリオ", () => {
     it("複数スライド・複数プレースホルダの注入を正しく行う", () => {
       const slide1Phs = [
