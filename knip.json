@@ -1,5 +1,6 @@
 {
-  "entry": ["src/extension/extension.ts"],
+  "entry": ["src/extension/extension.ts", ".vscode-test.mjs"],
   "project": ["src/**/*.ts", "vrt/**/*.ts", "e2e/**/*.ts"],
-  "ignoreBinaries": ["vsce"]
+  "ignoreBinaries": ["vsce"],
+  "ignoreDependencies": ["@vscode/test-electron"]
 }

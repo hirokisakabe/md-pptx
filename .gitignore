@@ -4,3 +4,4 @@ dist/
 vrt/libreoffice/fixtures/
 vrt/libreoffice/actual/
 vrt/libreoffice/diffs/
+.vscode-test/
