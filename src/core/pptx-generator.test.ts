@@ -1130,14 +1130,13 @@ describe("generatePptx", () => {
 
   describe("テキストと特殊要素が混在するスライドのレイアウト", () => {
     it("テキストとコードブロックが混在する場合、bodyプレースホルダの高さがテキスト描画高さにリサイズされる", () => {
-      const bodyPh = createMockPlaceholder(1, "body");
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const bodyPh: any = createMockPlaceholder(1, "body");
       // bodyプレースホルダにレイアウト情報を設定（実際のテンプレート相当）
-      Object.assign(bodyPh, {
-        top: 0.5 * 914400, // 0.5 inches in EMU
-        left: 0.5 * 914400,
-        width: 9 * 914400,
-        height: 4 * 914400, // 4 inches（大きな固定高さ）
-      });
+      bodyPh.top = 0.5 * 914400; // 0.5 inches in EMU
+      bodyPh.left = 0.5 * 914400;
+      bodyPh.width = 9 * 914400;
+      bodyPh.height = 4 * 914400; // 4 inches（大きな固定高さ）
       mockPrs = createMockPresentation(["Title and Content"], () => [bodyPh]);
 
       const parseResult: ParseResult = {
@@ -1145,7 +1144,10 @@ describe("generatePptx", () => {
         slides: [
           slideData([
             paragraph("本文テキスト"),
-            codeBlock('def greet(name):\n    print(f"Hello, {name}!")', "python"),
+            codeBlock(
+              'def greet(name):\n    print(f"Hello, {name}!")',
+              "python",
+            ),
             paragraph("追加のテキスト"),
           ]),
         ],
@@ -1176,20 +1178,20 @@ describe("generatePptx", () => {
       const slide = mockPrs._slides[0];
       expect(slide.shapes.add_textbox).toHaveBeenCalledTimes(1);
       // コードブロックの top 位置がリサイズ後の高さ基準で配置されている
-      const addTextboxCall = slide.shapes.add_textbox.mock.calls[0];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const addTextboxCall = (slide.shapes.add_textbox as any).mock.calls[0];
       const codeBlockTop = addTextboxCall[1]; // 第2引数が top (Emu)
       const expectedTop = bodyPh.top + bodyPh.height; // リサイズ後の top + height
       expect(codeBlockTop).toBe(expectedTop);
     });
 
     it("テキストとテーブルが混在する場合、bodyプレースホルダの高さがリサイズされる", () => {
-      const bodyPh = createMockPlaceholder(1, "body");
-      Object.assign(bodyPh, {
-        top: 0.5 * 914400,
-        left: 0.5 * 914400,
-        width: 9 * 914400,
-        height: 4 * 914400,
-      });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const bodyPh: any = createMockPlaceholder(1, "body");
+      bodyPh.top = 0.5 * 914400;
+      bodyPh.left = 0.5 * 914400;
+      bodyPh.width = 9 * 914400;
+      bodyPh.height = 4 * 914400;
       mockPrs = createMockPresentation(["Title and Content"], () => [bodyPh]);
 
       const tbl = table(["Col1", "Col2"], [["A", "B"]]);
@@ -1214,21 +1216,21 @@ describe("generatePptx", () => {
       const slide = mockPrs._slides[0];
       expect(slide.shapes.add_table).toHaveBeenCalledTimes(1);
       // テーブルの top 位置がリサイズ後の高さ基準で配置されている
-      const addTableCall = slide.shapes.add_table.mock.calls[0];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const addTableCall = (slide.shapes.add_table as any).mock.calls[0];
       const tableTop = addTableCall[3]; // add_table(rows, cols, left, top, width, height)
       const expectedTop = bodyPh.top + bodyPh.height;
       expect(tableTop).toBe(expectedTop);
     });
 
     it("特殊要素のみの場合、bodyプレースホルダの高さはリサイズされない", () => {
-      const bodyPh = createMockPlaceholder(1, "body");
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const bodyPh: any = createMockPlaceholder(1, "body");
       const originalHeight = 4 * 914400;
-      Object.assign(bodyPh, {
-        top: 0.5 * 914400,
-        left: 0.5 * 914400,
-        width: 9 * 914400,
-        height: originalHeight,
-      });
+      bodyPh.top = 0.5 * 914400;
+      bodyPh.left = 0.5 * 914400;
+      bodyPh.width = 9 * 914400;
+      bodyPh.height = originalHeight;
       mockPrs = createMockPresentation(["Title and Content"], () => [bodyPh]);
 
       const parseResult: ParseResult = {
