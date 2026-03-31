@@ -59,7 +59,7 @@ title: サンプルプレゼンテーション
 # サンプルプレゼンテーション
 ```
 
-テンプレートはフロントマターの `template` フィールド、または CLI の `-t` オプションで指定します。省略時は空のプレゼンテーションが生成されます。
+テンプレートはフロントマターの `template` フィールドで指定します。省略時は空のプレゼンテーションが生成されます。
 
 ## Markdown 記法
 
@@ -75,33 +75,6 @@ title: サンプルプレゼンテーション
 | `<!-- コメント -->`      | プレゼンターノート（ディレクティブ以外）         |
 
 詳細は [Markdown 記法仕様](docs/guide/syntax.md) を参照してください。
-
-## CLI
-
-補助的に CLI も利用できます。
-
-### `md-pptx build <markdown>`
-
-Markdown ファイルから PPTX を生成します。
-
-```bash
-npx md-pptx build slides.md
-npx md-pptx build slides.md -t template.pptx
-npx md-pptx build slides.md -o output.pptx
-```
-
-| オプション              | 説明                                                                                       |
-| ----------------------- | ------------------------------------------------------------------------------------------ |
-| `-t, --template <path>` | テンプレート PPTX のパス（省略時は空のプレゼンテーションを生成。フロントマターでも指定可） |
-| `-o, --output <path>`   | 出力先パス（デフォルト: 入力ファイルと同名の `.pptx`）                                     |
-
-### `md-pptx inspect <template>`
-
-テンプレート PPTX のレイアウトとプレースホルダ情報を表示します。
-
-```bash
-npx md-pptx inspect template.pptx
-```
 
 ## ライセンス
 

@@ -17,9 +17,6 @@
       "types": "./dist/index.d.ts"
     }
   },
-  "bin": {
-    "md-pptx": "./dist/cli.js"
-  },
   "engines": {
     "vscode": "^1.100.0"
   },
@@ -105,7 +102,6 @@
   "keywords": [],
   "license": "MIT",
   "dependencies": {
-    "commander": "^14.0.3",
     "jszip": "^3.10.1",
     "markdown-it": "^14.1.1",
     "pptx-glimpse": "^0.10.1",
