@@ -103,8 +103,8 @@ export function generatePptx(
         }
       }
 
-      // テキストと特殊要素が混在する場合、bodyプレースホルダの高さを
-      // 実際のテキスト描画高さに縮小して、特殊要素との間に巨大なギャップが生じないようにする
+      // テキストと特殊要素が混在する場合、テキストの推定描画高さを記録して
+      // 特殊要素の配置位置を計算する際に使用する（プレースホルダの固定高さの代わりに）
       const hasSpecialElements =
         codeBlocks.length > 0 || tables.length > 0 || images.length > 0;
       if (
@@ -112,18 +112,8 @@ export function generatePptx(
         bodyNonSpecialContent.length > 0 &&
         hasSpecialElements
       ) {
-        const estimatedHeight = estimateTextContentHeight(
-          bodyNonSpecialContent,
-        );
-        try {
-          // 推定高さが元の高さを超えないようクランプ（拡大防止）
-          const currentHeight = Number(bodyPlaceholder.height);
-          bodyPlaceholder.height = Emu(
-            Math.min(currentHeight, estimatedHeight),
-          );
-        } catch {
-          // height が設定不可の場合はフォールバック（既存動作）
-        }
+        (bodyPlaceholder as Record<string, number>)._bodyTextHeight =
+          estimateTextContentHeight(bodyNonSpecialContent);
       }
 
       // テーブルとコードブロックを body プレースホルダ基準で縦に配置
@@ -309,8 +299,15 @@ function resolveShapePosition(
       const hasBodyTextContent =
         (bodyPlaceholder as Record<string, boolean>)._hasBodyTextContent ===
         true;
+      // 推定テキスト高さがある場合はそれを使い、なければプレースホルダの固定高さを使う
+      const bodyTextHeight = (bodyPlaceholder as Record<string, number>)
+        ._bodyTextHeight;
+      const heightForOffset =
+        bodyTextHeight !== undefined
+          ? Math.min(bodyTextHeight, Number(bodyPlaceholder.height))
+          : Number(bodyPlaceholder.height);
       const top = hasBodyTextContent
-        ? Number(bodyPlaceholder.top) + Number(bodyPlaceholder.height)
+        ? Number(bodyPlaceholder.top) + heightForOffset
         : Number(bodyPlaceholder.top);
       return { left, width, top };
     } catch {

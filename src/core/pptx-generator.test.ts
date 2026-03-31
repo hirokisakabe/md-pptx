@@ -1129,10 +1129,9 @@ describe("generatePptx", () => {
   });
 
   describe("テキストと特殊要素が混在するスライドのレイアウト", () => {
-    it("テキストとコードブロックが混在する場合、bodyプレースホルダの高さがテキスト描画高さにリサイズされる", () => {
+    it("テキストとコードブロックが混在する場合、コードブロックが推定テキスト高さの直後に配置される", () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const bodyPh: any = createMockPlaceholder(1, "body");
-      // bodyプレースホルダにレイアウト情報を設定（実際のテンプレート相当）
       bodyPh.top = 0.5 * 914400; // 0.5 inches in EMU
       bodyPh.left = 0.5 * 914400;
       bodyPh.width = 9 * 914400;
@@ -1171,21 +1170,23 @@ describe("generatePptx", () => {
 
       generatePptx(parseResult, mappings);
 
-      // bodyプレースホルダの高さが元の4インチではなく、テキスト推定高さにリサイズされている
-      const originalHeight = 4 * 914400;
-      expect(bodyPh.height).toBeLessThan(originalHeight);
-      // テキストボックス（コードブロック）が追加されている
+      // プレースホルダの高さは変更されない（リサイズしない）
+      expect(bodyPh.height).toBe(4 * 914400);
+      // コードブロックが追加されている
       const slide = mockPrs._slides[0];
       expect(slide.shapes.add_textbox).toHaveBeenCalledTimes(1);
-      // コードブロックの top 位置がリサイズ後の高さ基準で配置されている
+      // コードブロックの top 位置がプレースホルダ固定高さではなく推定テキスト高さ基準
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const addTextboxCall = (slide.shapes.add_textbox as any).mock.calls[0];
-      const codeBlockTop = addTextboxCall[1]; // 第2引数が top (Emu)
-      const expectedTop = bodyPh.top + bodyPh.height; // リサイズ後の top + height
-      expect(codeBlockTop).toBe(expectedTop);
+      const codeBlockTop = Number(addTextboxCall[1]); // 第2引数が top (Emu)
+      // top がプレースホルダ底辺(top + height = 4.5 inches)より上に配置される
+      const placeholderBottom = Number(bodyPh.top) + Number(bodyPh.height);
+      expect(codeBlockTop).toBeLessThan(placeholderBottom);
+      // top がプレースホルダ上端より下にある
+      expect(codeBlockTop).toBeGreaterThan(Number(bodyPh.top));
     });
 
-    it("テキストとテーブルが混在する場合、bodyプレースホルダの高さがリサイズされる", () => {
+    it("テキストとテーブルが混在する場合、テーブルが推定テキスト高さの直後に配置される", () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const bodyPh: any = createMockPlaceholder(1, "body");
       bodyPh.top = 0.5 * 914400;
@@ -1211,26 +1212,26 @@ describe("generatePptx", () => {
 
       generatePptx(parseResult, mappings);
 
-      const originalHeight = 4 * 914400;
-      expect(bodyPh.height).toBeLessThan(originalHeight);
+      // プレースホルダの高さは変更されない
+      expect(bodyPh.height).toBe(4 * 914400);
       const slide = mockPrs._slides[0];
       expect(slide.shapes.add_table).toHaveBeenCalledTimes(1);
-      // テーブルの top 位置がリサイズ後の高さ基準で配置されている
+      // テーブルの top 位置がプレースホルダ底辺より上に配置される
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const addTableCall = (slide.shapes.add_table as any).mock.calls[0];
-      const tableTop = addTableCall[3]; // add_table(rows, cols, left, top, width, height)
-      const expectedTop = bodyPh.top + bodyPh.height;
-      expect(tableTop).toBe(expectedTop);
+      const tableTop = Number(addTableCall[3]); // add_table(rows, cols, left, top, width, height)
+      const placeholderBottom = Number(bodyPh.top) + Number(bodyPh.height);
+      expect(tableTop).toBeLessThan(placeholderBottom);
+      expect(tableTop).toBeGreaterThan(Number(bodyPh.top));
     });
 
-    it("特殊要素のみの場合、bodyプレースホルダの高さはリサイズされない", () => {
+    it("特殊要素のみの場合、プレースホルダの上端から配置される", () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const bodyPh: any = createMockPlaceholder(1, "body");
-      const originalHeight = 4 * 914400;
       bodyPh.top = 0.5 * 914400;
       bodyPh.left = 0.5 * 914400;
       bodyPh.width = 9 * 914400;
-      bodyPh.height = originalHeight;
+      bodyPh.height = 4 * 914400;
       mockPrs = createMockPresentation(["Title and Content"], () => [bodyPh]);
 
       const parseResult: ParseResult = {
@@ -1249,8 +1250,12 @@ describe("generatePptx", () => {
 
       generatePptx(parseResult, mappings);
 
-      // 特殊要素のみの場合、高さはリサイズされない
-      expect(bodyPh.height).toBe(originalHeight);
+      // 特殊要素のみの場合、プレースホルダ上端から配置される
+      const slide = mockPrs._slides[0];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const addTextboxCall = (slide.shapes.add_textbox as any).mock.calls[0];
+      const codeBlockTop = addTextboxCall[1];
+      expect(codeBlockTop).toBe(bodyPh.top);
     });
   });
 
