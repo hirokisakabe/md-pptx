@@ -112,7 +112,9 @@ export function generatePptx(
         bodyNonSpecialContent.length > 0 &&
         hasSpecialElements
       ) {
-        const estimatedHeight = estimateTextContentHeight(bodyNonSpecialContent);
+        const estimatedHeight = estimateTextContentHeight(
+          bodyNonSpecialContent,
+        );
         try {
           // 推定高さが元の高さを超えないようクランプ（拡大防止）
           const currentHeight = Number(bodyPlaceholder.height);
@@ -546,8 +548,7 @@ function estimateTextContentHeight(content: ContentElement[]): number {
       case "heading": {
         const fontSize = headingFontSize(element.level);
         const lineCount = countTextLines(element.runs);
-        totalHeight +=
-          Number(Pt(fontSize)) * lineHeightMultiplier * lineCount;
+        totalHeight += Number(Pt(fontSize)) * lineHeightMultiplier * lineCount;
         break;
       }
       case "paragraph": {
