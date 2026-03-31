@@ -37,7 +37,11 @@ async function initialize(globalStorageUri: vscode.Uri): Promise<void> {
 
   const lockFileURL = path.join(recipesDir, "pyodide-lock.json");
   const { loadPyodide } = await import("pyodide");
-  const pyodide = await loadPyodide({ lockFileURL });
+  const pyodide = await loadPyodide({
+    lockFileURL,
+    stdout: (text: string) => console.log(text),
+    stderr: (text: string) => console.error(text),
+  });
   await init(pyodide);
   _orderedListHelper = createOrderedListHelper(
     pyodide as unknown as PyodideLike,
