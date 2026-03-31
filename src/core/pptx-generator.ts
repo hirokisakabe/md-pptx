@@ -6,6 +6,7 @@ import type {
   ImageElement,
   ListElement,
   ParagraphElement,
+  PlaceholderType,
   ParseResult,
   SlideMappingResult,
   TableElement,
@@ -91,7 +92,12 @@ export function generatePptx(
             return true;
           });
           if (nonSpecialContent.length > 0) {
-            injectText(ph, nonSpecialContent, options?.orderedListHelper);
+            injectText(
+              ph,
+              nonSpecialContent,
+              options?.orderedListHelper,
+              assignment.placeholderType,
+            );
           }
           if (assignment.placeholderType === "body") {
             bodyPlaceholder = ph;
@@ -189,6 +195,7 @@ function injectText(
   placeholder: any,
   content: ContentElement[],
   orderedListHelper?: (pPrPackedId: string) => void,
+  placeholderType?: PlaceholderType,
 ): void {
   const tf = placeholder.text_frame;
   if (!tf) return;
@@ -199,7 +206,7 @@ function injectText(
   for (const element of content) {
     switch (element.type) {
       case "heading":
-        writeHeading(tf, element, isFirst);
+        writeHeading(tf, element, isFirst, placeholderType);
         isFirst = false;
         break;
       case "paragraph":
@@ -219,10 +226,20 @@ function injectText(
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function writeHeading(tf: any, heading: HeadingElement, isFirst: boolean) {
+function writeHeading(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  tf: any,
+  heading: HeadingElement,
+  isFirst: boolean,
+  placeholderType?: PlaceholderType,
+) {
   const p = isFirst ? tf.paragraphs[0] : tf.add_paragraph();
   writeRuns(p, heading.runs);
+
+  // タイトルプレースホルダの場合、フォントスタイルをプレースホルダのデフォルトに委任する
+  if (placeholderType === "title") {
+    return;
+  }
 
   if (heading.level <= 2) {
     try {
