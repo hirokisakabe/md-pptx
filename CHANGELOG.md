@@ -1,5 +1,11 @@
 # md-pptx
 
+## 0.7.0
+
+### Minor Changes
+
+- 3320acc: CLI サポートを削除し、VS Code 拡張に配布経路を集約
+
 ## 0.6.3
 
 ### Patch Changes
